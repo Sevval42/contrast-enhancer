@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(vulkan_compute_boilerplate)
+project(contrast_enhancer)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -34,8 +34,8 @@ elseif(WIN32)
     )
 endif()
 
-add_executable(vulkan_compute_boilerplate ${SOURCE_FILES})
+add_executable(contrast_enhancer ${SOURCE_FILES})
 
-target_link_libraries(vulkan_compute_boilerplate PUBLIC Vulkan::Vulkan)
+target_link_libraries(contrast_enhancer PUBLIC Vulkan::Vulkan)
 
-target_include_directories(vulkan_compute_boilerplate PRIVATE ${stb_SOURCE_DIR})
+target_include_directories(contrast_enhancer PRIVATE ${stb_SOURCE_DIR})
