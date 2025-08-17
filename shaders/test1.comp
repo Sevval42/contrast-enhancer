@@ -1,15 +1,29 @@
 #version 450
 
-layout(set = 0, binding = 0) buffer InputOutputBuffer {
-    float data[];
-} bufferData;
+const uint numBins = 256 * 256 * 256;
 
-layout(set = 0, binding = 1) uniform UniformBuffer {
+layout(set = 0, binding = 0) uniform UniformBuffer {
     float offset;
+    uint radius;
+    float defaultColor;
 } uniformBuffer;
 
-layout(local_size_x = 1) in;
+layout(set = 0, binding = 1, rgba8) uniform image2D img;
+
+layout(set = 0, binding = 2) buffer HistogramBuffer {
+    uint values[];
+} histogram;
+
+layout(local_size_x = 16, local_size_y = 16) in;
 void main() {
-    uint idx = gl_GlobalInvocationID.x;
-    bufferData.data[idx] *= 5;
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    if (pixelCoords.x >= imageSize(img).x || pixelCoords.y >= imageSize(img).y) {
+        return;
+    }
+
+    vec4 color = imageLoad(img, pixelCoords);
+
+    uint binIndex = uint(color.r*255 + color.g * 255 * 255 + color.b * 255 * 255 * 255);
+
+    atomicAdd(histogram.values[binIndex], 1);
 }
