@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_beta.h>
 #include "vulkan/vulkan_core.h"
@@ -23,12 +25,11 @@ size_t imageSize;
 VulkanBuffer histogramBuffer;
 
 struct UniformData {
-    float offset = 4;
     uint32_t kernelRadius = 3;
-    float defaultColor = 1;
-}uniformData;
+    uint32_t binCount = 256;
+}constants;
 
-void initApplication() {
+void initApplication(std::string imageFile) {
 
     const char* instanceExtensions[] = {
         #ifdef __APPLE__
@@ -65,24 +66,25 @@ void initApplication() {
     LOG("Filling descriptorsets with Buffers");
     descriptorSetInfo->addBufferAndData(context, 
         &uniformsBuffer, 
-        &uniformData, 
-        sizeof(uniformData), 
+        &constants, 
+        sizeof(constants), 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
     int w,h,channels;
-    unsigned char* pixels = stbi_load("../images/image3.png", &w, &h, &channels, STBI_rgb_alpha);
+    stbi_ldr_to_hdr_gamma(1.0f);
+    float* pixels = stbi_loadf(imageFile.c_str(), &w, &h, &channels, STBI_rgb_alpha);
     if (!pixels) {
         throw std::runtime_error("Failed to load image");
     }
-    imageSize = size_t(w) * h * 4;
+    imageSize = size_t(w) * h * 4 * sizeof(float); // forcing 4 channels
 
     descriptorSetInfo->addImageAndData(
         context, 
         &imageBuffer, pixels, imageSize,
         w, h, 1, 
-        VK_FORMAT_R8G8B8A8_UNORM, 
+        VK_FORMAT_R32G32B32A32_SFLOAT, //more precision while calculating the transformations
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -101,7 +103,7 @@ void initApplication() {
 
     LOG("Creating pipeline");
     std::vector<const char*> computeShaders;
-    computeShaders.push_back("../shaders/test1.spv");
+    computeShaders.push_back("../shaders/histogram.spv");
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
     };
@@ -191,51 +193,66 @@ void runApplication() {
 
 
 int main(int argc, char* argv[]) {
-    initApplication();
+    std::string fileName = "../images/input.png";
+    if(argc == 2) {
+        fileName = std::string("../images/") + argv[1];
+    }
+    initApplication(fileName);
 
     for (int i = 0; i < ITERATIONS; ++i) {
         runApplication();
     }
-    std::vector<uint8_t> outputPixels(imageSize);
+    LOG("Computing finished");
+
+    std::vector<float> outputPixels(imageSize/sizeof(float));
     getDataFromImageWithStagingBuffer(context, &imageBuffer, outputPixels.data());
 
-    if(!stbi_write_png("output.png", static_cast<int>(imageBuffer.extent.width), static_cast<int>(imageBuffer.extent.height), 4, outputPixels.data(), imageBuffer.extent.width*4)) {
+    std::vector<uint8_t> outputBytes(imageBuffer.extent.width * imageBuffer.extent.height * 4);
+    for (size_t i = 0; i < outputPixels.size(); ++i) {
+        float v = std::min(std::max(outputPixels[i], 0.0f), 1.0f);
+        outputBytes[i] = static_cast<uint8_t>(v * 255.0f);
+    }
+
+    if(!stbi_write_png("imageOutput.png", static_cast<int>(imageBuffer.extent.width), static_cast<int>(imageBuffer.extent.height), 4, outputBytes.data(), imageBuffer.extent.width*4)) {
         LOG_ERROR("Failed saving output image");
     }
 
-    
-    size_t count = 256*256*256;
+    LOG("Loading histogram from gpu");
+    uint32_t count = pow(constants.binCount, 3);
     std::vector<uint> histogram(count);
     getDataFromBufferWithStagingBuffer(context, &histogramBuffer, histogram.data(), sizeof(int) * count);
 
-    std::vector<uint> histogram2D(256*256);
-
-    for(uint i = 0; i < 256*256; ++i) {
-        int x = i % 256;
-        int y = floor(i/256);
-        for(int z = 0; z < 256; ++z) {
-            int getIndex = x + z * 256 + y * 256 * 256;
+    LOG("Calculating 2D accumulated histogram");
+    int histogram2DCount = pow(constants.binCount, 2);
+    std::vector<uint> histogram2D(histogram2DCount);
+    for(uint i = 0; i < histogram2DCount; ++i) {
+        int x = i % constants.binCount;
+        int y = floor(i/constants.binCount);
+        for(int z = 0; z < constants.binCount; ++z) {
+            int getIndex = z + x * constants.binCount + y * constants.binCount * constants.binCount;
             histogram2D[i] += histogram[getIndex];
         }
     }
 
     uint max = 0;
-    for(uint i = 0; i < 256*256; ++i) {
+    for(uint i = 0; i < histogram2DCount; ++i) {
         if(histogram2D[i]>max) {
             max = histogram2D[i];
         }
     }
 
-    for(uint i = 0; i < 256*256; ++i) {
+    for(uint i = 0; i < histogram2DCount; ++i) {
         histogram2D[i] = (int)((float)histogram2D[i] / (float) max * 255);
     }
 
-    std::vector<uint8_t> histogram2DBytes(256*256);
-    for (size_t i = 0; i < 256*256; ++i) {
+    std::vector<uint8_t> histogram2DBytes(histogram2DCount);
+    for (size_t i = 0; i < histogram2DCount; ++i) {
         histogram2DBytes[i] = std::min(histogram2D[i], 255u);
     }
-    stbi_write_png("output.png", 256, 256, 1, histogram2DBytes.data(), 256);
 
+    if(!stbi_write_png("histogram.png", constants.binCount, constants.binCount, 1, histogram2DBytes.data(), constants.binCount)) {
+        LOG_ERROR("Failed saving histogram");
+    }
    
     shutdownApplication();
     return 1;
