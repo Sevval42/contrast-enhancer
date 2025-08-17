@@ -27,6 +27,7 @@ VulkanImage imageBuffer;
 size_t imageSize;
 VulkanBuffer histogramBuffer;
 VulkanBuffer kernelBuffer;
+VulkanBuffer kernelBufferTemp;
 VulkanBuffer expLookUp;
 
 // Integral images
@@ -73,6 +74,7 @@ void initApplication(std::string imageFile) {
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);    // Image
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Histogram
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // KernelBuffer
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Temp kernelBuffer
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // exp look up table
     for(int i = 0; i < integralImages.size(); ++i)
         addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
@@ -118,7 +120,15 @@ void initApplication(std::string imageFile) {
     descriptorSetInfo->addBufferAndData(context, 
         &kernelBuffer, 
         NULL, 
-        sizeof(uint) * 256 * 256 * 256, 
+        sizeof(float) * 256 * 256 * 256, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    descriptorSetInfo->addBufferAndData(context, 
+        &kernelBufferTemp, 
+        NULL, 
+        sizeof(float) * 256 * 256 * 256, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -181,6 +191,7 @@ void shutdownApplication() {
     }
     
     destroyBuffer(context, &expLookUp);
+    destroyBuffer(context, &kernelBufferTemp);
     destroyBuffer(context, &kernelBuffer);
     destroyBuffer(context, &histogramBuffer);
     destroyImage(context, &imageBuffer);
@@ -291,12 +302,12 @@ int main(int argc, char* argv[]) {
 
     LOG("Loading histogram from gpu");
     uint32_t count = pow(constants.binCount, 3);
-    std::vector<uint> histogram(count);
-    getDataFromBufferWithStagingBuffer(context, &integralImages.at(7), histogram.data(), sizeof(int) * count);
+    std::vector<float> histogram(count);
+    getDataFromBufferWithStagingBuffer(context, &kernelBuffer, histogram.data(), sizeof(int) * count);
 
     LOG("Calculating 2D accumulated histogram");
     int histogram2DCount = pow(constants.binCount, 2);
-    std::vector<uint> histogram2D(histogram2DCount);
+    std::vector<float> histogram2D(histogram2DCount);
     for(uint i = 0; i < histogram2DCount; ++i) {
         int x = i % constants.binCount;
         int y = floor(i/constants.binCount);
@@ -306,7 +317,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    uint max = 0;
+    float max = 0;
     for(uint i = 0; i < histogram2DCount; ++i) {
         if(histogram2D[i]>max) {
             max = histogram2D[i];
@@ -314,12 +325,12 @@ int main(int argc, char* argv[]) {
     }
 
     for(uint i = 0; i < histogram2DCount; ++i) {
-        histogram2D[i] = (int)((float)histogram2D[i] / (float) max * 255);
+        histogram2D[i] = histogram2D[i] / max * 255.0f;
     }
 
     std::vector<uint8_t> histogram2DBytes(histogram2DCount);
     for (size_t i = 0; i < histogram2DCount; ++i) {
-        histogram2DBytes[i] = std::min(histogram2D[i], 255u);
+        histogram2DBytes[i] = static_cast<uint8_t>(histogram2D[i]);
     }
 
     if(!stbi_write_png("histogram.png", constants.binCount, constants.binCount, 1, histogram2DBytes.data(), constants.binCount)) {

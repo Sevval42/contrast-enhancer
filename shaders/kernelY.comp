@@ -10,10 +10,14 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
 } histogram;
 
 layout(set = 0, binding = 3) buffer KernelBuffer {
-    uint values[];
+    float values[];
 } kernelHistogram;
 
-layout(set = 0, binding = 4) buffer GaussLookUpBuffer {
+layout(set = 0, binding = 4) buffer KernelBufferTemp {
+    float values[];
+} kernelHistogramTemp;
+
+layout(set = 0, binding = 5) buffer GaussLookUpBuffer {
     float values[];
 } gauss;
 
@@ -38,5 +42,5 @@ void main() {
         weight += gauss.values[i+radius];
     }
     sum /= weight;
-    histogram.values[getIndex(color)] = uint(sum);
+    kernelHistogramTemp.values[getIndex(color)] = sum;
 }

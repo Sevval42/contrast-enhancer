@@ -10,10 +10,14 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
 } histogram;
 
 layout(set = 0, binding = 3) buffer KernelBuffer {
-    uint values[];
+    float values[];
 } kernelHistogram;
 
-layout(set = 0, binding = 4) buffer GaussLookUpBuffer {
+layout(set = 0, binding = 4) buffer KernelBufferTemp {
+    float values[];
+} kernelHistogramTemp;
+
+layout(set = 0, binding = 5) buffer GaussLookUpBuffer {
     float values[];
 } gauss;
 
@@ -34,9 +38,9 @@ void main() {
     for(int i = -radius; i <= radius; i++) {
         int neighborIndex = color.b+i;
         if(neighborIndex < 0 || neighborIndex >= int(constants.binCount)) continue;
-        sum += histogram.values[getIndex(ivec3(color.rg, neighborIndex))] * gauss.values[i+radius];
+        sum += kernelHistogramTemp.values[getIndex(ivec3(color.rg, neighborIndex))] * gauss.values[i+radius];
         weight += gauss.values[i+radius];
     }
     sum /= weight;
-    kernelHistogram.values[getIndex(color)] = uint(sum);
+    kernelHistogram.values[getIndex(color)] = sum;
 }

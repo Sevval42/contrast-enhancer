@@ -20,7 +20,6 @@ void main() {
 
     vec4 color = imageLoad(img, pixelCoords);
 
-    float maxColor = float(constants.binCount-1);
     uint rBin = min(uint(floor(color.r * float(constants.binCount))), constants.binCount - 1u);
     uint gBin = min(uint(floor(color.g * float(constants.binCount))), constants.binCount - 1u);
     uint bBin = min(uint(floor(color.b * float(constants.binCount))), constants.binCount - 1u);

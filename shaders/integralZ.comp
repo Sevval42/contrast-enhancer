@@ -5,18 +5,14 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
     uint radius;
 } constants;
 
-layout(set = 0, binding = 3) buffer KernelBuffer {
-    uint values[];
-} kernelHistogram;
-
-layout(set = 0, binding =  5) buffer integralBuffer000 { uint values[]; } int000;
-layout(set = 0, binding =  6) buffer integralBuffer001 { uint values[]; } int001;
-layout(set = 0, binding =  7) buffer integralBuffer010 { uint values[]; } int010;
-layout(set = 0, binding =  8) buffer integralBuffer011 { uint values[]; } int011;
-layout(set = 0, binding =  9) buffer integralBuffer100 { uint values[]; } int100;
-layout(set = 0, binding = 10) buffer integralBuffer101 { uint values[]; } int101;
-layout(set = 0, binding = 11) buffer integralBuffer110 { uint values[]; } int110;
-layout(set = 0, binding = 12) buffer integralBuffer111 { uint values[]; } int111;
+layout(set = 0, binding =  6) buffer integralBuffer000 { float values[]; } int000;
+layout(set = 0, binding =  7) buffer integralBuffer001 { float values[]; } int001;
+layout(set = 0, binding =  8) buffer integralBuffer010 { float values[]; } int010;
+layout(set = 0, binding =  9) buffer integralBuffer011 { float values[]; } int011;
+layout(set = 0, binding = 10) buffer integralBuffer100 { float values[]; } int100;
+layout(set = 0, binding = 11) buffer integralBuffer101 { float values[]; } int101;
+layout(set = 0, binding = 12) buffer integralBuffer110 { float values[]; } int110;
+layout(set = 0, binding = 13) buffer integralBuffer111 { float values[]; } int111;
 
 uint getIndex(ivec3 x) {
     uint bins = constants.binCount;
@@ -42,7 +38,7 @@ void main() {
         int101.values[index1] += int101.values[oldIndex1];
         int110.values[index0] += int110.values[oldIndex0];
         int111.values[index1] += int111.values[oldIndex1];
-        
+
         oldIndex0 = index0;
         oldIndex1 = index1;
     }
