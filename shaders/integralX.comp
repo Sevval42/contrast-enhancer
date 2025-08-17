@@ -1,0 +1,48 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint binCount;
+    uint radius;
+} constants;
+
+layout(set = 0, binding = 3) buffer KernelBuffer {
+    uint values[];
+} kernelHistogram;
+
+layout(set = 0, binding =  5) buffer integralBuffer000 { uint values[]; } int000;
+layout(set = 0, binding =  6) buffer integralBuffer001 { uint values[]; } int001;
+layout(set = 0, binding =  7) buffer integralBuffer010 { uint values[]; } int010;
+layout(set = 0, binding =  8) buffer integralBuffer011 { uint values[]; } int011;
+layout(set = 0, binding =  9) buffer integralBuffer100 { uint values[]; } int100;
+layout(set = 0, binding = 10) buffer integralBuffer101 { uint values[]; } int101;
+layout(set = 0, binding = 11) buffer integralBuffer110 { uint values[]; } int110;
+layout(set = 0, binding = 12) buffer integralBuffer111 { uint values[]; } int111;
+
+uint getIndex(ivec3 x) {
+    uint bins = constants.binCount;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main() {
+    uint binC = constants.binCount;
+    ivec2 row = ivec2(gl_GlobalInvocationID.xy);
+    uint sum0 = kernelHistogram.values[getIndex(ivec3(0, row))];
+    uint sum1 = kernelHistogram.values[getIndex(ivec3(binC-1, row))];
+
+    for(uint i = 1; i < binC; ++i) {
+        uint index0 = getIndex(ivec3(i, row));
+        uint index1 = getIndex(ivec3(binC-1 - i, row));
+        sum0 += kernelHistogram.values[index0];
+        sum1 += kernelHistogram.values[index1];
+
+        int000.values[index0] = sum0;
+        int001.values[index0] = sum0;
+        int010.values[index0] = sum0;
+        int011.values[index0] = sum0;
+        int100.values[index1] = sum1;
+        int101.values[index1] = sum1;
+        int110.values[index1] = sum1;
+        int111.values[index1] = sum1;
+    }
+}

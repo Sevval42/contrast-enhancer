@@ -1,0 +1,52 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint binCount;
+    uint radius;
+} constants;
+
+layout(set = 0, binding = 3) buffer KernelBuffer {
+    uint values[];
+} kernelHistogram;
+
+layout(set = 0, binding =  5) buffer integralBuffer000 { uint values[]; } int000;
+layout(set = 0, binding =  6) buffer integralBuffer001 { uint values[]; } int001;
+layout(set = 0, binding =  7) buffer integralBuffer010 { uint values[]; } int010;
+layout(set = 0, binding =  8) buffer integralBuffer011 { uint values[]; } int011;
+layout(set = 0, binding =  9) buffer integralBuffer100 { uint values[]; } int100;
+layout(set = 0, binding = 10) buffer integralBuffer101 { uint values[]; } int101;
+layout(set = 0, binding = 11) buffer integralBuffer110 { uint values[]; } int110;
+layout(set = 0, binding = 12) buffer integralBuffer111 { uint values[]; } int111;
+
+uint getIndex(ivec3 x) {
+    uint bins = constants.binCount;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main() {
+    uint binC = constants.binCount;
+    ivec2 row = ivec2(gl_GlobalInvocationID.xy);
+    uint sum00 = int000.values[getIndex(ivec3(row.x, 0, row.y))];
+    uint sum01 = int010.values[getIndex(ivec3(row.x, binC-1, row.y))];
+    uint sum10 = int100.values[getIndex(ivec3(row.x, 0, row.y))];
+    uint sum11 = int110.values[getIndex(ivec3(row.x, binC-1, row.y))];
+
+    for(uint i = 1; i < binC; ++i) {
+        uint index0 = getIndex(ivec3(row.x, i, row.y));
+        uint index1 = getIndex(ivec3(row.x, binC-1-i, row.y));
+        sum00 += int000.values[index0];
+        sum01 += int010.values[index1];
+        sum10 += int100.values[index0];
+        sum11 += int110.values[index1];
+
+        int000.values[index0] = sum00;
+        int001.values[index0] = sum00;
+        int010.values[index1] = sum01;
+        int011.values[index1] = sum01;
+        int100.values[index0] = sum10;
+        int101.values[index0] = sum10;
+        int110.values[index1] = sum11;
+        int111.values[index1] = sum11;
+    }
+}

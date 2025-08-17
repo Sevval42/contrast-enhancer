@@ -1,10 +1,12 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_beta.h>
 #include "vulkan/vulkan_core.h"
@@ -26,6 +28,11 @@ size_t imageSize;
 VulkanBuffer histogramBuffer;
 VulkanBuffer kernelBuffer;
 VulkanBuffer expLookUp;
+
+// Integral images
+std::vector<VulkanBuffer> integralImages(8);
+
+
 
 struct UniformData {
     uint32_t binCount = 256;
@@ -67,6 +74,9 @@ void initApplication(std::string imageFile) {
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Histogram
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // KernelBuffer
     addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // exp look up table
+    for(int i = 0; i < integralImages.size(); ++i)
+        addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
+    
     createDescriptorSet(context, descriptorSetInfo);
 
 
@@ -122,9 +132,19 @@ void initApplication(std::string imageFile) {
         &expLookUp, 
         lookUp, 
         sizeof(float) * (constants.kernelRadius*2+1), 
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
+
+    for(auto& intImg : integralImages) {
+        descriptorSetInfo->addBufferAndData(context, 
+            &intImg, 
+            NULL, 
+            sizeof(uint) * 256 * 256 * 256, 
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+    }
 
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSetInfo);
@@ -135,19 +155,30 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/kernelX.spv");
     computeShaders.push_back("../shaders/kernelY.spv");
     computeShaders.push_back("../shaders/kernelZ.spv");
+    computeShaders.push_back("../shaders/integralX.spv");
+    computeShaders.push_back("../shaders/integralY.spv");
+    computeShaders.push_back("../shaders/integralZ.spv");
 
-    int groups = constants.binCount / 8+1;
+    int groupsKernel = constants.binCount / 8+1;
+    int groupsInt = constants.binCount / 1;
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
-        ivec3{groups, groups, groups},
-        ivec3{groups, groups, groups},
-        ivec3{groups, groups, groups},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsInt, groupsInt, 1},
     };
     pipeline = createPipeline(context, computeShaders, dispatches, descriptorSetInfo);
 }
 
 void shutdownApplication() {
     vkDeviceWaitIdle(context->device);
+
+    for(auto& intImg : integralImages) {
+        destroyBuffer(context, &intImg);
+    }
     
     destroyBuffer(context, &expLookUp);
     destroyBuffer(context, &kernelBuffer);
@@ -238,7 +269,10 @@ int main(int argc, char* argv[]) {
     initApplication(fileName);
 
     for (int i = 0; i < ITERATIONS; ++i) {
+        auto start = std::chrono::high_resolution_clock::now();
         runApplication();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+        std::cout << "Iteration took " << duration.count() << " ms" << std::endl;
     }
     LOG("Computing finished");
 
@@ -258,7 +292,7 @@ int main(int argc, char* argv[]) {
     LOG("Loading histogram from gpu");
     uint32_t count = pow(constants.binCount, 3);
     std::vector<uint> histogram(count);
-    getDataFromBufferWithStagingBuffer(context, &kernelBuffer, histogram.data(), sizeof(int) * count);
+    getDataFromBufferWithStagingBuffer(context, &integralImages.at(7), histogram.data(), sizeof(int) * count);
 
     LOG("Calculating 2D accumulated histogram");
     int histogram2DCount = pow(constants.binCount, 2);
