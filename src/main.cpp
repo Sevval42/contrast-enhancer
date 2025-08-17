@@ -33,6 +33,8 @@ VulkanBuffer expLookUp;
 // Integral images
 std::vector<VulkanBuffer> integralImages(8);
 
+VulkanBuffer transformationBuffer;
+
 
 
 struct UniformData {
@@ -79,6 +81,7 @@ void initApplication(std::string imageFile) {
     for(int i = 0; i < integralImages.size(); ++i)
         addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
     
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Transformationbuffer
     createDescriptorSet(context, descriptorSetInfo);
 
 
@@ -150,11 +153,19 @@ void initApplication(std::string imageFile) {
         descriptorSetInfo->addBufferAndData(context, 
             &intImg, 
             NULL, 
-            sizeof(uint) * 256 * 256 * 256, 
+            sizeof(float) * 256 * 256 * 256, 
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
     }
+
+    descriptorSetInfo->addBufferAndData(context, 
+        &transformationBuffer, 
+        NULL, 
+        3*sizeof(float) * 256 * 256 * 256, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
 
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSetInfo);
@@ -168,6 +179,7 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/integralX.spv");
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
+    computeShaders.push_back("../shaders/transformation.spv");
 
     int groupsKernel = constants.binCount / 8+1;
     int groupsInt = constants.binCount / 1;
@@ -179,6 +191,7 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
     };
     pipeline = createPipeline(context, computeShaders, dispatches, descriptorSetInfo);
 }
@@ -186,10 +199,10 @@ void initApplication(std::string imageFile) {
 void shutdownApplication() {
     vkDeviceWaitIdle(context->device);
 
+    destroyBuffer(context, &transformationBuffer);
     for(auto& intImg : integralImages) {
         destroyBuffer(context, &intImg);
     }
-    
     destroyBuffer(context, &expLookUp);
     destroyBuffer(context, &kernelBufferTemp);
     destroyBuffer(context, &kernelBuffer);
