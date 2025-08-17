@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -23,11 +24,15 @@ VulkanBuffer uniformsBuffer;
 VulkanImage imageBuffer;
 size_t imageSize;
 VulkanBuffer histogramBuffer;
+VulkanBuffer kernelBuffer;
+VulkanBuffer expLookUp;
 
 struct UniformData {
-    uint32_t kernelRadius = 3;
     uint32_t binCount = 256;
+    uint32_t kernelRadius = 5;
 }constants;
+
+float sigma = 1.0;
 
 void initApplication(std::string imageFile) {
 
@@ -57,9 +62,11 @@ void initApplication(std::string imageFile) {
     LOG("Creating descriptor set");
     descriptorSetInfo = initDescriptorSet();
 
-    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);   // Constants
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);    // Image
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Histogram
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // KernelBuffer
+    addDescriptorSetLayout(descriptorSetInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // exp look up table
     createDescriptorSet(context, descriptorSetInfo);
 
 
@@ -98,14 +105,43 @@ void initApplication(std::string imageFile) {
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
+    descriptorSetInfo->addBufferAndData(context, 
+        &kernelBuffer, 
+        NULL, 
+        sizeof(uint) * 256 * 256 * 256, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    float lookUp[constants.kernelRadius * 2 + 1];
+    int radius = (int)constants.kernelRadius;
+    for(int i = -radius; i <= radius; ++i) {
+        lookUp[i+radius] = std::exp(-(i * i) / (2.0f * sigma * sigma));
+    }
+    descriptorSetInfo->addBufferAndData(context, 
+        &expLookUp, 
+        lookUp, 
+        sizeof(float) * constants.kernelRadius*2+1, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSetInfo);
 
     LOG("Creating pipeline");
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
+    computeShaders.push_back("../shaders/kernelX.spv");
+    computeShaders.push_back("../shaders/kernelY.spv");
+    computeShaders.push_back("../shaders/kernelZ.spv");
+
+    int groups = constants.binCount / 8+1;
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
+        ivec3{groups, groups, groups},
+        ivec3{groups, groups, groups},
+        ivec3{groups, groups, groups},
     };
     pipeline = createPipeline(context, computeShaders, dispatches, descriptorSetInfo);
 }
@@ -113,6 +149,8 @@ void initApplication(std::string imageFile) {
 void shutdownApplication() {
     vkDeviceWaitIdle(context->device);
     
+    destroyBuffer(context, &expLookUp);
+    destroyBuffer(context, &kernelBuffer);
     destroyBuffer(context, &histogramBuffer);
     destroyImage(context, &imageBuffer);
     destroyBuffer(context, &uniformsBuffer);
@@ -220,7 +258,7 @@ int main(int argc, char* argv[]) {
     LOG("Loading histogram from gpu");
     uint32_t count = pow(constants.binCount, 3);
     std::vector<uint> histogram(count);
-    getDataFromBufferWithStagingBuffer(context, &histogramBuffer, histogram.data(), sizeof(int) * count);
+    getDataFromBufferWithStagingBuffer(context, &kernelBuffer, histogram.data(), sizeof(int) * count);
 
     LOG("Calculating 2D accumulated histogram");
     int histogram2DCount = pow(constants.binCount, 2);
