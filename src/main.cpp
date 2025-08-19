@@ -16,7 +16,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define ITERATIONS 1
+#define ITERATIONS 10
 
 VulkanContext* context;
 VulkanDescriptorSet* descriptorSetInfo;
@@ -38,7 +38,7 @@ VulkanBuffer transformationBuffer;
 
 
 struct UniformData {
-    uint32_t binCount = 256;
+    uint32_t binCount = 128;
     uint32_t kernelRadius = 5;
 }constants;
 
@@ -218,7 +218,71 @@ void shutdownApplication() {
     exitVulkan(context);
 }
 
-void runApplication() {
+void recordCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline) {
+    vkCmdBindDescriptorSets(
+        *commandBuffer, 
+        VK_PIPELINE_BIND_POINT_COMPUTE, 
+        pipeline->pipelineLayout, 
+        0, 
+        1, 
+        &descriptorSet->descriptorSet, 
+        0, 
+        0
+    );
+
+    for (int i = 0; i < pipeline->pipelines.size(); ++i) {
+        vkCmdBindPipeline(
+            *commandBuffer, 
+            VK_PIPELINE_BIND_POINT_COMPUTE, 
+            pipeline->pipelines[i]
+        );
+
+        ivec3 dispatchSize = pipeline->dispatchSizes[i];
+        vkCmdDispatch(*commandBuffer, dispatchSize.x, dispatchSize.y, dispatchSize.z);
+        {
+            VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            vkCmdPipelineBarrier(
+                *commandBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0,
+                1, &barrier,
+                0, nullptr,
+                0, nullptr
+            );
+        }
+    }
+}
+
+void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
+    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = commandBuffer;
+
+    for(int i = 0; i < iterations; ++i) {
+        auto start = std::chrono::high_resolution_clock::now();
+        if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+            throw std::runtime_error("failed to submit compute command buffer!");
+        }
+        vkQueueWaitIdle(context->computeQueue.queue);
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+        std::cout << "Iteration took " << duration.count() << " ms" << std::endl;
+    }
+
+}
+
+
+int main(int argc, char* argv[]) {
+    std::string fileName = "../images/input.png";
+    if(argc == 2) {
+        fileName = std::string("../images/") + argv[1];
+    }
+    initApplication(fileName);
+
+    // Start running the shaders
+
     VkCommandBuffer commandBuffer;
     {
         VkCommandBufferAllocateInfo allocInfo{};
@@ -233,74 +297,13 @@ void runApplication() {
 
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    vkCmdBindDescriptorSets(
-        commandBuffer, 
-        VK_PIPELINE_BIND_POINT_COMPUTE, 
-        pipeline.pipelineLayout, 
-        0, 
-        1, 
-        &descriptorSetInfo->descriptorSet, 
-        0, 
-        0
-    );
-
-    for (int i = 0; i < pipeline.pipelines.size(); ++i) {
-        vkCmdBindPipeline(
-            commandBuffer, 
-            VK_PIPELINE_BIND_POINT_COMPUTE, 
-            pipeline.pipelines[i]
-        );
-
-        ivec3 dispatchSize = pipeline.dispatchSizes[i];
-        vkCmdDispatch(commandBuffer, dispatchSize.x, dispatchSize.y, dispatchSize.z);
-        {
-            VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                0,
-                1, &barrier,
-                0, nullptr,
-                0, nullptr
-            );
-        }
-    }
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to record command buffer!");
-    }
-
-    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit compute command buffer!");
-    }
-
-    vkQueueWaitIdle(context->computeQueue.queue);
-
+    recordCommandBuffer(&commandBuffer, descriptorSetInfo, &pipeline);
+    vkEndCommandBuffer(commandBuffer);
+    
+    runApplication(&commandBuffer, ITERATIONS);
+    
     vkFreeCommandBuffers(context->device, context->commandPool, 1, &commandBuffer);
-}
 
-
-int main(int argc, char* argv[]) {
-    std::string fileName = "../images/input.png";
-    if(argc == 2) {
-        fileName = std::string("../images/") + argv[1];
-    }
-    initApplication(fileName);
-
-    for (int i = 0; i < ITERATIONS; ++i) {
-        auto start = std::chrono::high_resolution_clock::now();
-        runApplication();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
-        std::cout << "Iteration took " << duration.count() << " ms" << std::endl;
-    }
     LOG("Computing finished");
 
     std::vector<float> outputPixels(imageSize/sizeof(float));
