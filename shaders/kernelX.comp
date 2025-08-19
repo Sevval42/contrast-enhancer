@@ -42,5 +42,5 @@ void main() {
         weight += gauss.values[i+radius];
     }
     sum /= weight;
-    kernelHistogram.values[getIndex(color)] = sum;
+    kernelHistogram.values[getIndex(color)] += sum;
 }
