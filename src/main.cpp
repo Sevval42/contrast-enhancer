@@ -112,10 +112,11 @@ void initApplication(std::string imageFile) {
     );
     stbi_image_free(pixels);
 
+    uint32_t binC = constants.binCount;
     descriptorSetInfo->addBufferAndData(context, 
         &histogramBuffer, 
         NULL, 
-        sizeof(uint) * 256 * 256 * 256, 
+        sizeof(uint32_t) * binC * binC * binC, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -123,7 +124,7 @@ void initApplication(std::string imageFile) {
     descriptorSetInfo->addBufferAndData(context, 
         &kernelBuffer, 
         NULL, 
-        sizeof(float) * 256 * 256 * 256, 
+        sizeof(float) * binC * binC * binC, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -131,7 +132,7 @@ void initApplication(std::string imageFile) {
     descriptorSetInfo->addBufferAndData(context, 
         &kernelBufferTemp, 
         NULL, 
-        sizeof(float) * 256 * 256 * 256, 
+        sizeof(float) * binC * binC * binC, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -153,7 +154,7 @@ void initApplication(std::string imageFile) {
         descriptorSetInfo->addBufferAndData(context, 
             &intImg, 
             NULL, 
-            sizeof(float) * 256 * 256 * 256, 
+            sizeof(float) * binC * binC * binC, 
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
@@ -162,7 +163,7 @@ void initApplication(std::string imageFile) {
     descriptorSetInfo->addBufferAndData(context, 
         &transformationBuffer, 
         NULL, 
-        3*sizeof(float) * 256 * 256 * 256, 
+        4*sizeof(float) * binC * binC * binC, // vec3 still need 16 bytes!!!
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -180,6 +181,7 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
     computeShaders.push_back("../shaders/transformation.spv");
+    computeShaders.push_back("../shaders/enhanceContrast.spv");
 
     int groupsKernel = constants.binCount / 8+1;
     int groupsInt = constants.binCount / 1;
@@ -192,6 +194,7 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{(int)w/16+1, (int)h/16+1, 1},
     };
     pipeline = createPipeline(context, computeShaders, dispatches, descriptorSetInfo);
 }
@@ -316,12 +319,12 @@ int main(int argc, char* argv[]) {
     LOG("Loading histogram from gpu");
     uint32_t count = pow(constants.binCount, 3);
     std::vector<float> histogram(count);
-    getDataFromBufferWithStagingBuffer(context, &kernelBuffer, histogram.data(), sizeof(int) * count);
+    getDataFromBufferWithStagingBuffer(context, &kernelBuffer, histogram.data(), sizeof(float) * count);
 
     LOG("Calculating 2D accumulated histogram");
     int histogram2DCount = pow(constants.binCount, 2);
     std::vector<float> histogram2D(histogram2DCount);
-    for(uint i = 0; i < histogram2DCount; ++i) {
+    for(uint32_t i = 0; i < histogram2DCount; ++i) {
         int x = i % constants.binCount;
         int y = floor(i/constants.binCount);
         for(int z = 0; z < constants.binCount; ++z) {
@@ -331,13 +334,13 @@ int main(int argc, char* argv[]) {
     }
 
     float max = 0;
-    for(uint i = 0; i < histogram2DCount; ++i) {
+    for(uint32_t i = 0; i < histogram2DCount; ++i) {
         if(histogram2D[i]>max) {
             max = histogram2D[i];
         }
     }
 
-    for(uint i = 0; i < histogram2DCount; ++i) {
+    for(uint32_t i = 0; i < histogram2DCount; ++i) {
         histogram2D[i] = histogram2D[i] / max * 255.0f;
     }
 

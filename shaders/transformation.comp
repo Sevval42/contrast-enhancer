@@ -5,8 +5,6 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
     uint radius;
 } constants;
 
-layout(set = 0, binding = 1, rgba32f) uniform image2D img;
-
 layout(set = 0, binding =  6) buffer integralBuffer000 { float values[]; } int000;
 layout(set = 0, binding =  7) buffer integralBuffer001 { float values[]; } int001;
 layout(set = 0, binding =  8) buffer integralBuffer010 { float values[]; } int010;
@@ -18,7 +16,7 @@ layout(set = 0, binding = 13) buffer integralBuffer111 { float values[]; } int11
 
 layout(set = 0, binding = 14) buffer transformationBuffer { vec3 values[]; } transformation;
 
-uint getIndex(ivec3 x) {
+uint getIndex(uvec3 x) {
     uint bins = constants.binCount;
     return x.r + x.g * bins + x.b * bins * bins;
 }
@@ -27,7 +25,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     float maxBin = constants.binCount - 1.0;
 
-    ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
+    uvec3 color = uvec3(gl_GlobalInvocationID.xyz);
     if(any(greaterThanEqual(color, ivec3(int(constants.binCount))))) return;
 
     vec3 q000, q001, q010, q011, q100, q101, q110, q111;
@@ -131,6 +129,6 @@ void main() {
         + q001 * weight110
         + q000 * weight111;
 
-    map *= maxBin / sumWeights;
+    map *= 1 / sumWeights;
     transformation.values[index] = map;
 }

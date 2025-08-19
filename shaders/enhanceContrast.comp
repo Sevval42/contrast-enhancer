@@ -1,0 +1,33 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint binCount;
+    uint radius;
+} constants;
+
+layout(set = 0, binding = 1, rgba32f) uniform image2D img;
+
+layout(set = 0, binding = 14) buffer transformationBuffer { vec3 values[]; } transformation;
+
+uint getIndex(ivec3 x) {
+    uint bins = constants.binCount;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    if (pixelCoords.x >= imageSize(img).x || pixelCoords.y >= imageSize(img).y) {
+        return;
+    }
+
+    vec4 color = imageLoad(img, pixelCoords);
+    uint rBin = min(uint(floor(color.r * float(constants.binCount))), constants.binCount - 1u);
+    uint gBin = min(uint(floor(color.g * float(constants.binCount))), constants.binCount - 1u);
+    uint bBin = min(uint(floor(color.b * float(constants.binCount))), constants.binCount - 1u);
+
+    uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
+
+    imageStore(img, pixelCoords, vec4(transformation.values[binIndex], color.a));
+    //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
+}
