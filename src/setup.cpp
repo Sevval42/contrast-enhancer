@@ -110,7 +110,7 @@ void setupDescriptorSet(
     fillDescriptorSet(context, descriptorSet);
 }
 
-void setupCommandBuffer(VkCommandBuffer *commandBuffer, VulkanDescriptorSet *descriptorSet, VulkanPipeline *pipeline) {
+void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline) {
     vkCmdBindDescriptorSets(
         *commandBuffer, 
         VK_PIPELINE_BIND_POINT_COMPUTE, 
@@ -148,7 +148,7 @@ void setupCommandBuffer(VkCommandBuffer *commandBuffer, VulkanDescriptorSet *des
     }
 }
 
-void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
+void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers) {
     destroyBuffer(context, &stageBuffers->transformationBuffer);
     for(auto& intImg : stageBuffers->integralImages) {
         destroyBuffer(context, &intImg);
