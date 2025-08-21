@@ -1,6 +1,7 @@
 #include "setup.h"
 #include "vulkan_base/vulkan_base.h"
 #include <iostream>
+#include <vulkan/vulkan_core.h>
 #include "stb_image.h"
 #include "stb_image_write.h"
 
@@ -10,12 +11,13 @@ void setupDescriptorSet(
     StageBuffers* buffers,
     float* image, int w, int h, float sigma,
     UniformData* constants,
-    float baseDensity
+    VulkanBuffer* baseTransformation,
+    bool isBaseDensityRun
 ) {
     std::vector<float> baseHistogram((int)pow(constants->binCount, 3));
     
     for(int i = 0; i < baseHistogram.size(); ++i) {
-        baseHistogram[i] = baseDensity;
+        baseHistogram[i] = 0;
     }
 
     buffers->integralImages = std::vector<VulkanBuffer>(8);
@@ -29,7 +31,11 @@ void setupDescriptorSet(
     for(int i = 0; i < buffers->integralImages.size(); ++i)
         addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
     
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Transformationbuffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Transformation buffer
+    if(!isBaseDensityRun) {
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Basedensity transformation buffer
+    }
+
     createDescriptorSet(context, descriptorSet);
 
     LOG("Filling descriptorsets with Buffers");
@@ -78,7 +84,7 @@ void setupDescriptorSet(
     float lookUp[constants->kernelRadius * 2 + 1];
     int radius = (int)constants->kernelRadius;
     for(int i = -radius; i <= radius; ++i) {
-        lookUp[i+radius] = std::exp(-(i * i) / (2.0f * sigma * sigma));
+        lookUp[i+radius] = std::exp(-(i * i) / (2.0f * sigma * sigma)); // TODO Change to 3D and one shader
     }
     descriptorSet->addBufferAndData(context, 
         &buffers->expLookUp, 
@@ -105,6 +111,20 @@ void setupDescriptorSet(
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
+
+    if(!isBaseDensityRun) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = baseTransformation->buffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = 4*sizeof(float) * binC * binC * binC;
+
+        VulkanDescriptorBufferInfo info{};
+        info.bufferInfo = bufferInfo;
+        info.type = VulkanDescriptorBufferInfo::Type::BUFFER;
+
+        descriptorSet->buffers.push_back(info);
+    }
+    
 
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSet);
@@ -149,6 +169,7 @@ void setupCommandBuffer(VkCommandBuffer *commandBuffer, VulkanDescriptorSet *des
 }
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
+    destroyBuffer(context, &stageBuffers->baseDensityTransformation);
     destroyBuffer(context, &stageBuffers->transformationBuffer);
     for(auto& intImg : stageBuffers->integralImages) {
         destroyBuffer(context, &intImg);

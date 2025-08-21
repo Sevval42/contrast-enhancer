@@ -17,14 +17,18 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define ITERATIONS 100
+int ITERATIONS = 50;
 
 UniformData constants;
 
 VulkanContext* context;
-VulkanDescriptorSet* descriptorSetInfo;
-VulkanPipeline pipeline;
 
+VulkanDescriptorSet* baseDescriptorSet;
+VulkanPipeline basePipeline;
+StageBuffers baseBuffers;
+
+VulkanDescriptorSet* mainDescriptorSet;
+VulkanPipeline mainPipeline;
 StageBuffers mainBuffers;
 
 float sigma = 1.0;
@@ -56,8 +60,9 @@ void initApplication(std::string imageFile) {
 
     // TODO: Change loading of constants to yaml file
     constants = {
-        256,
-        3
+        128,
+        0,
+        0
     };
 
     int w,h,channels;
@@ -66,19 +71,51 @@ void initApplication(std::string imageFile) {
     if (!pixels) {
         throw std::runtime_error("Failed to load image");
     }
-    mainBuffers.imageSize = size_t(w) * h * 4 * sizeof(float); // forcing 4 channels
+        mainBuffers.imageSize = size_t(w) * h * 4 * sizeof(float); // forcing 4 channels
+        baseBuffers.imageSize = mainBuffers.imageSize;
 
     float baseDensity = (float)(w*h) / pow(constants.binCount, 3);
+    constants.baseDensity = baseDensity;
     std::cout << "Base density: " << baseDensity << std::endl;
 
-    LOG("Creating descriptor set");
-    descriptorSetInfo = initDescriptorSet();
-    setupDescriptorSet(context, descriptorSetInfo, &mainBuffers, pixels, w, h, sigma, &constants, baseDensity);
+    LOG("Creating descriptor set for base density");
+
+    baseDescriptorSet = initDescriptorSet();
+    setupDescriptorSet(context, baseDescriptorSet, &baseBuffers, pixels, w, h, sigma, &constants, NULL, true);
+
+    LOG("Creating descriptor for main loop");
+    mainDescriptorSet = initDescriptorSet();
+    setupDescriptorSet(context, mainDescriptorSet, &mainBuffers, pixels, w, h, sigma, &constants, &baseBuffers.transformationBuffer, false);
     
     stbi_image_free(pixels);
 
 
-    LOG("Creating pipeline");
+    LOG("Creating pipelines");
+    int groupsKernel = constants.binCount / 8+1;
+    int groupsInt = constants.binCount / 1;
+
+
+    std::vector<const char*> baseComputeShaders;
+    baseComputeShaders.push_back("../shaders/kernelX.spv");
+    baseComputeShaders.push_back("../shaders/kernelY.spv");
+    baseComputeShaders.push_back("../shaders/kernelZ.spv");
+    baseComputeShaders.push_back("../shaders/integralX.spv");
+    baseComputeShaders.push_back("../shaders/integralY.spv");
+    baseComputeShaders.push_back("../shaders/integralZ.spv");
+    baseComputeShaders.push_back("../shaders/transformation.spv");
+
+    std::vector<ivec3> baseDispatches = {
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsInt, groupsInt, 1},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+    };
+    basePipeline = createPipeline(context, baseComputeShaders, baseDispatches, baseDescriptorSet);
+
+
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
     computeShaders.push_back("../shaders/kernelX.spv");
@@ -90,8 +127,6 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/transformation.spv");
     computeShaders.push_back("../shaders/enhanceContrast.spv");
 
-    int groupsKernel = constants.binCount / 8+1;
-    int groupsInt = constants.binCount / 1;
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
@@ -103,15 +138,19 @@ void initApplication(std::string imageFile) {
         ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{(int)w/16+1, (int)h/16+1, 1},
     };
-    pipeline = createPipeline(context, computeShaders, dispatches, descriptorSetInfo);
+    mainPipeline = createPipeline(context, computeShaders, dispatches, mainDescriptorSet);
 }
 
 void shutdownApplication() {
     vkDeviceWaitIdle(context->device);
 
+    destroyStageBuffer(context, &baseBuffers);
+    destroyPipeline(context, &basePipeline);
+    destroyDescriptorSet(context, baseDescriptorSet);
+
     destroyStageBuffer(context, &mainBuffers);
-    destroyPipeline(context, &pipeline);
-    destroyDescriptorSet(context, descriptorSetInfo);
+    destroyPipeline(context, &mainPipeline);
+    destroyDescriptorSet(context, mainDescriptorSet);
     
     exitVulkan(context);
 }
@@ -136,7 +175,10 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
 
 int main(int argc, char* argv[]) {
     std::string fileName = "../images/input.png";
-    if(argc == 2) {
+    if(argc >= 3) {
+        ITERATIONS = atoi(argv[2]);
+    }
+    if(argc >= 2) {
         fileName = std::string("../images/") + argv[1];
     }
     initApplication(fileName);
@@ -156,8 +198,19 @@ int main(int argc, char* argv[]) {
     }
 
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+
+    // one iteration for base density transformation
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    setupCommandBuffer(&commandBuffer, descriptorSetInfo, &pipeline);
+    setupCommandBuffer(&commandBuffer, baseDescriptorSet, &basePipeline);
+    vkEndCommandBuffer(commandBuffer);
+    
+    runApplication(&commandBuffer, 1);
+    
+    vkResetCommandBuffer(commandBuffer, 0);
+
+    // MAIN LOOP
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    setupCommandBuffer(&commandBuffer, mainDescriptorSet, &mainPipeline);
     vkEndCommandBuffer(commandBuffer);
     
     runApplication(&commandBuffer, ITERATIONS);
@@ -205,7 +258,7 @@ int main(int argc, char* argv[]) {
     }
 
     for(uint32_t i = 0; i < histogram2DCount; ++i) {
-        histogram2D[i] = histogram2D[i] / max * 255.0f;
+        histogram2D[i] = histogram2D[i] / max * 255.0f * 10;
     }
 
     std::vector<uint8_t> histogram2DBytes(histogram2DCount);

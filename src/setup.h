@@ -3,6 +3,7 @@
 struct UniformData {
     uint32_t binCount;
     uint32_t kernelRadius;
+    float baseDensity;
 };
 
 struct StageBuffers {
@@ -18,6 +19,7 @@ struct StageBuffers {
     std::vector<VulkanBuffer> integralImages;
 
     VulkanBuffer transformationBuffer;
+    VulkanBuffer baseDensityTransformation;
 };
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers);
@@ -28,7 +30,8 @@ void setupDescriptorSet(
     StageBuffers* buffers,
     float* image, int w, int h, float sigma,
     UniformData* constants,
-    float baseDensity
+    VulkanBuffer* baseTransformation,
+    bool isBaseDensity
 );
 
 void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline);

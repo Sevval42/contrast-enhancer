@@ -3,6 +3,7 @@
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
+    float d0;
 } constants;
 
 layout(set = 0, binding = 2) buffer HistogramBuffer {
@@ -43,4 +44,5 @@ void main() {
     }
     sum /= weight;
     kernelHistogramTemp.values[getIndex(color)] = sum;
+    histogram.values[getIndex(color)] = 0;
 }

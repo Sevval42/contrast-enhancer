@@ -3,6 +3,7 @@
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
+    float d0;
 } constants;
 
 layout(set = 0, binding =  6) buffer integralBuffer000 { float values[]; } int000;

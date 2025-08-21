@@ -3,15 +3,55 @@
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
+    float d0;
 } constants;
 
 layout(set = 0, binding = 1, rgba32f) uniform image2D img;
 
-layout(set = 0, binding = 14) buffer transformationBuffer { vec3 values[]; } transformation;
+layout(set = 0, binding = 14, std140) buffer transformationBuffer { vec4 values[]; } transformation;
+
+layout(set = 0, binding = 15, std140) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
 
 uint getIndex(ivec3 x) {
     uint bins = constants.binCount;
     return x.r + x.g * bins + x.b * bins * bins;
+}
+
+
+uint hash( uint x ) {
+    x += ( x << 10u );
+    x ^= ( x >>  6u );
+    x += ( x <<  3u );
+    x ^= ( x >> 11u );
+    x += ( x << 15u );
+    return x;
+}
+
+// Compound versions of the hashing algorithm I whipped together.
+uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
+uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y ^ hash(v.z))             ); }
+uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y ^ hash(v.z ^ hash(v.w))) ); }
+
+
+
+// Construct a float with half-open range [0:1] using low 23 bits.
+// All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
+float floatConstruct( uint m ) {
+    const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+    const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+
+    m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+    m |= ieeeOne;                          // Add fractional part to 1.0
+
+    float  f = uintBitsToFloat( m );       // Range [1:2]
+    return f - 1.0;                        // Range [0:1]
+}
+
+vec3 random(vec2 v) {
+    float x = floatConstruct(hash(floatBitsToUint(v)));
+    float y = floatConstruct(hash(floatBitsToUint(vec3(v, x))));
+    float z = floatConstruct(hash(floatBitsToUint(vec4(v, x, y))));
+    return vec3(x, y, z);
 }
 
 layout(local_size_x = 16, local_size_y = 16) in;
@@ -21,13 +61,15 @@ void main() {
         return;
     }
 
-    vec4 color = imageLoad(img, pixelCoords);
+    vec4 color = imageLoad(img, pixelCoords);// + vec4((random(pixelCoords)*2-1 )*1e-5, 0);
     uint rBin = min(uint(floor(color.r * float(constants.binCount))), constants.binCount - 1u);
     uint gBin = min(uint(floor(color.g * float(constants.binCount))), constants.binCount - 1u);
     uint bBin = min(uint(floor(color.b * float(constants.binCount))), constants.binCount - 1u);
 
     uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
 
-    imageStore(img, pixelCoords, vec4(transformation.values[binIndex], color.a));
+    vec3 newColor = vec3(rBin, gBin, bBin) / float(constants.binCount) + transformation.values[binIndex].xyz - baseTransformation.values[binIndex].xyz;
+
+    imageStore(img, pixelCoords, vec4(newColor, color.a));
     //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
 }
