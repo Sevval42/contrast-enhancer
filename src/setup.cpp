@@ -130,7 +130,7 @@ void setupDescriptorSet(
     fillDescriptorSet(context, descriptorSet);
 }
 
-void setupCommandBuffer(VkCommandBuffer *commandBuffer, VulkanDescriptorSet *descriptorSet, VulkanPipeline *pipeline) {
+void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline) {
     vkCmdBindDescriptorSets(
         *commandBuffer, 
         VK_PIPELINE_BIND_POINT_COMPUTE, 
