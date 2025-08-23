@@ -71,9 +71,9 @@ void main() {
 
     
 
-    uint rBin = min(uint(floor(color.r * float(constants.binCount))), constants.binCount - 1u);
-    uint gBin = min(uint(floor(color.g * float(constants.binCount))), constants.binCount - 1u);
-    uint bBin = min(uint(floor(color.b * float(constants.binCount))), constants.binCount - 1u);
+    uint rBin = min(uint(floor(color.r * float(constants.binCount-1))), constants.binCount - 1u);
+    uint gBin = min(uint(floor(color.g * float(constants.binCount-1))), constants.binCount - 1u);
+    uint bBin = min(uint(floor(color.b * float(constants.binCount-1))), constants.binCount - 1u);
 
     uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
     atomicAdd(histogram.values[binIndex], 1);

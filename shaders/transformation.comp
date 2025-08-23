@@ -27,7 +27,7 @@ void main() {
     float maxBin = constants.binCount-1;
 
     uvec3 color = uvec3(gl_GlobalInvocationID.xyz);
-    if(any(greaterThanEqual(color, ivec3(int(constants.binCount))))) return;
+    if(any(greaterThanEqual(color, uvec3(uint(constants.binCount))))) return;
 
     vec3 q000, q001, q010, q011, q100, q101, q110, q111;
     float x = color.x / float(maxBin);

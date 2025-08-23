@@ -12,7 +12,7 @@ layout(set = 0, binding = 14) buffer transformationBuffer { vec4 values[]; } tra
 
 layout(set = 0, binding = 15) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
 
-uint getIndex(ivec3 x) {
+uint getIndex(uvec3 x) {
     uint bins = constants.binCount;
     return x.r + x.g * bins + x.b * bins * bins;
 }
@@ -56,20 +56,56 @@ vec3 random(vec2 v) {
 
 layout(local_size_x = 16, local_size_y = 16) in;
 void main() {
-    float maxBin = constants.binCount-1;
     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
     if (pixelCoords.x >= imageSize(img).x || pixelCoords.y >= imageSize(img).y) {
         return;
     }
 
-    vec4 color = imageLoad(img, pixelCoords) - vec4((random(pixelCoords)*2-1 )*5e-5, 0);
-    uint rBin = min(uint(floor(color.r * maxBin)), constants.binCount - 1u);
-    uint gBin = min(uint(floor(color.g * maxBin)), constants.binCount - 1u);
-    uint bBin = min(uint(floor(color.b * maxBin)), constants.binCount - 1u);
+    float maxBin = constants.binCount-1;
+    vec4 color = imageLoad(img, pixelCoords) + vec4((random(pixelCoords)*2.0-1.0)*5e-5, 0);
+    color *= maxBin;
+
+    /* 1. Ansatz
+    uint rBin = min(uint(floor(color.r)), constants.binCount - 1u);
+    uint gBin = min(uint(floor(color.g)), constants.binCount - 1u);
+    uint bBin = min(uint(floor(color.b)), constants.binCount - 1u);
 
     uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
+    vec3 newColor = color.xyz + transformation.values[binIndex].xyz - baseTransformation.values[binIndex].xyz;*/
 
-    vec3 newColor = color.xyz * maxBin + transformation.values[binIndex].xyz - baseTransformation.values[binIndex].xyz;
+    // Interpolation
+    float r0 = floor(color.x);
+    float g0 = floor(color.y);
+    float b0 = floor(color.z);
+    float r1 = min(r0 + 1, constants.binCount-1u);
+    float g1 = min(g0 + 1, constants.binCount-1u);
+    float b1 = min(b0 + 1, constants.binCount-1u);
+
+    float rd = color.x - r0;
+    float gd = color.y - g0;
+    float bd = color.z - b0;
+
+    vec4 transf = 
+        transformation.values[getIndex(uvec3(r0, g0, b0))] * (1-rd) * (1-gd) * (1-bd) +
+        transformation.values[getIndex(uvec3(r1, g0, b0))] * rd * (1-gd) * (1-bd) +
+        transformation.values[getIndex(uvec3(r0, g1, b0))] * (1-rd) * gd * (1-bd) +
+        transformation.values[getIndex(uvec3(r1, g1, b0))] * rd * gd * (1-bd) +
+        transformation.values[getIndex(uvec3(r0, g0, b1))] * (1-rd) * (1-gd) * bd +
+        transformation.values[getIndex(uvec3(r1, g0, b1))] * rd * (1-gd) * bd +
+        transformation.values[getIndex(uvec3(r0, g1, b1))] * (1-rd) * gd * bd +
+        transformation.values[getIndex(uvec3(r1, g1, b1))] * rd * gd * bd;
+
+    vec4 d0transf = 
+        baseTransformation.values[getIndex(uvec3(r0, g0, b0))] * (1-rd) * (1-gd) * (1-bd) +
+        baseTransformation.values[getIndex(uvec3(r1, g0, b0))] * rd * (1-gd) * (1-bd) +
+        baseTransformation.values[getIndex(uvec3(r0, g1, b0))] * (1-rd) * gd * (1-bd) +
+        baseTransformation.values[getIndex(uvec3(r1, g1, b0))] * rd * gd * (1-bd) +
+        baseTransformation.values[getIndex(uvec3(r0, g0, b1))] * (1-rd) * (1-gd) * bd +
+        baseTransformation.values[getIndex(uvec3(r1, g0, b1))] * rd * (1-gd) * bd +
+        baseTransformation.values[getIndex(uvec3(r0, g1, b1))] * (1-rd) * gd * bd +
+        baseTransformation.values[getIndex(uvec3(r1, g1, b1))] * rd * gd * bd;
+
+    vec3 newColor = color.xyz + transf.xyz - d0transf.xyz;
 
     imageStore(img, pixelCoords, vec4(newColor/maxBin, color.a));
     //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
