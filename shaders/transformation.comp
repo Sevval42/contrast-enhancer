@@ -17,25 +17,26 @@ layout(set = 0, binding = 13) buffer integralBuffer111 { float values[]; } int11
 
 layout(set = 0, binding = 14, std140) buffer transformationBuffer { vec4 values[]; } transformation;
 
-uint getIndex(uvec3 x) {
-    uint bins = constants.binCount;
+int getIndex(ivec3 x) {
+    if(any(lessThan(x, ivec3(0)))) return -1;
+    int bins = int(constants.binCount);
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
-    float maxBin = constants.binCount-1;
+    float maxBin = constants.binCount;
 
-    uvec3 color = uvec3(gl_GlobalInvocationID.xyz);
+    ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
     if(any(greaterThanEqual(color, uvec3(uint(constants.binCount))))) return;
 
     vec3 q000, q001, q010, q011, q100, q101, q110, q111;
     float x = color.x / float(maxBin);
     float y = color.y / float(maxBin);
     float z = color.z / float(maxBin);
-    float i = color.x;
-    float j = color.y;
-    float k = color.z;
+    int i = color.x;
+    int j = color.y;
+    int k = color.z;
 
     // q000
     if (i <= j && i <= k) {
@@ -118,6 +119,32 @@ void main() {
     float weight101 = int101.values[index];
     float weight110 = int110.values[index];
     float weight111 = int111.values[index];
+
+    /*uint index = getIndex(color);
+    uint index000 = getIndex(ivec3(i-1, j-1, k-1));
+    float weight000 = index000 == -1 ? 0 :  int000.values[index000];
+
+    uint index001 = getIndex(ivec3(i-1, j-1, k));
+    float weight001 = index001 == -1 ? 0 :  int001.values[index001];
+
+    uint index010 = getIndex(ivec3(i-1, j, k-1));
+    float weight010 = index010 == -1 ? 0 :  int010.values[index010];
+
+    uint index011 = getIndex(ivec3(i-1, j, k));
+    float weight011 = index011 == -1 ? 0 :  int011.values[index011];
+
+    uint index100 = getIndex(ivec3(i, j-1, k-1));
+    float weight100 = index100 == -1 ? 0 :  int100.values[index100];
+
+    uint index101 = getIndex(ivec3(i, j-1, k));
+    float weight101 = index101 == -1 ? 0 :  int101.values[index101];
+
+    uint index110 = getIndex(ivec3(i, j, k-1));
+    float weight110 = index110 == -1 ? 0 :  int110.values[index110];
+
+    uint index111 = getIndex(ivec3(i, j, k));
+    float weight111 = index111 == -1 ? 0 :  int111.values[index111];*/
+
     float sumWeights = weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111;
 
     vec3 map 
@@ -131,5 +158,5 @@ void main() {
         + q000 * weight111;
 
     map *= float(maxBin) / sumWeights;
-    transformation.values[index] = vec4(map, 0);
+    transformation.values[getIndex(color)] = vec4(map, 0);
 }

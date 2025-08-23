@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -11,15 +13,18 @@
 #include <vulkan/vulkan_beta.h>
 #include "vulkan/vulkan_core.h"
 #include "vulkan_base/vulkan_base.h"
+#include "debug.h"
 #include "setup.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define RANDIMG true
-#define INTEGRALS false
+
+#define RANDIMG false
+#define INTEGRALS true
 #define TRANSFORMATION true
+#define VIDEO true
 
 int ITERATIONS = 50;
 
@@ -64,8 +69,8 @@ void initApplication(std::string imageFile) {
 
     // TODO: Change loading of constants to yaml file
     constants = {
-        128,
-        3,
+        64,
+        2,
         0
     };
 
@@ -212,10 +217,17 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
         vkQueueWaitIdle(context->computeQueue.queue);
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
-        std::cout << "Iteration took " << duration.count() << " ms" << std::endl;
-    }
 
+        
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+        std::cout << "Iteration " << i+1 << " took " << duration.count() << " ms" << std::endl;
+
+        #if VIDEO
+        std::ostringstream oss;
+        oss << "histograms/histogram" << std::setw(5) << std::setfill('0') << i+1 << ".png";
+        saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str());
+        #endif
+    }
 }
 
 
@@ -266,167 +278,16 @@ int main(int argc, char* argv[]) {
     LOG("Computing finished");
 
 
-    std::vector<float> outputPixels(mainBuffers.imageSize/sizeof(float));
-    getDataFromImageWithStagingBuffer(context, &mainBuffers.imageBuffer, outputPixels.data());
+    saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
 
-    std::vector<uint8_t> outputBytes(mainBuffers.imageBuffer.extent.width * mainBuffers.imageBuffer.extent.height * 4);
-    for (size_t i = 0; i < outputPixels.size(); ++i) {
-        float v = std::min(std::max(outputPixels[i], 0.0f), 1.0f);
-        outputBytes[i] = static_cast<uint8_t>(v * 255.0f);
-    }
-
-    if(!stbi_write_png("imageOutput.png", static_cast<int>(mainBuffers.imageBuffer.extent.width), static_cast<int>(mainBuffers.imageBuffer.extent.height), 4, outputBytes.data(), mainBuffers.imageBuffer.extent.width*4)) {
-        LOG_ERROR("Failed saving output image");
-    }
-
-    LOG("Loading histogram from gpu");
-    uint32_t count = pow(constants.binCount, 3);
-    std::vector<float> histogram(count);
-    getDataFromBufferWithStagingBuffer(context, &mainBuffers.kernelBuffer, histogram.data(), sizeof(float) * count);
-
-    LOG("Calculating 2D accumulated histogram");
-    int histogram2DCount = pow(constants.binCount, 2);
-    std::vector<float> histogram2D(histogram2DCount);
-    for(uint32_t i = 0; i < histogram2DCount; ++i) {
-        int x = i % constants.binCount;
-        int y = floor(i/constants.binCount);
-        for(int z = 0; z < constants.binCount; ++z) {
-            int getIndex = x + z * constants.binCount + y * constants.binCount * constants.binCount;
-            histogram2D[i] += histogram[getIndex];
-        }
-    }
-
-    float max = 0;
-    for(uint32_t i = 0; i < histogram2DCount; ++i) {
-        if(histogram2D[i]>max) {
-            max = histogram2D[i];
-        }
-    }
-
-    for(uint32_t i = 0; i < histogram2DCount; ++i) {
-        histogram2D[i] = histogram2D[i] / max * 255.0f * 10;
-    }
-
-    std::vector<uint8_t> histogram2DBytes(histogram2DCount);
-    for (size_t i = 0; i < histogram2DCount; ++i) {
-        histogram2DBytes[i] = static_cast<uint8_t>(histogram2D[i]);
-    }
-
-    if(!stbi_write_png("histogram.png", constants.binCount, constants.binCount, 1, histogram2DBytes.data(), constants.binCount)) {
-        LOG_ERROR("Failed saving histogram");
-    }
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogram.png").c_str());
 
     #if INTEGRALS
-
-    for(int i = 0; i < mainBuffers.integralImages.size(); ++i) {
-        std::vector<float> integral(count);
-        getDataFromBufferWithStagingBuffer(context, &mainBuffers.integralImages[i], integral.data(), sizeof(float) * count);
-
-        LOG("Calculating 2D accumulated histogram");
-        int integral2DCount = pow(constants.binCount, 2);
-        std::vector<float> integral2D(integral2DCount);
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            int x = i % constants.binCount;
-            int y = floor(i/constants.binCount);
-            for(int z = 0; z < constants.binCount; ++z) {
-                int getIndex = z + x * constants.binCount + y * constants.binCount * constants.binCount;
-                integral2D[i] += integral[getIndex];
-            }
-        }
-
-        float max = 0;
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            if(integral2D[i]>max) {
-                max = integral2D[i];
-            }
-        }
-
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            integral2D[i] = integral2D[i] / max * 255.0f;
-        }
-
-        std::vector<uint8_t> integral2DBytes(integral2DCount);
-        for (size_t i = 0; i < integral2DCount; ++i) {
-            integral2DBytes[i] = static_cast<uint8_t>(integral2D[i]);
-        }
-
-        if(!stbi_write_png(("integral" + std::to_string(i) + ".png").c_str(), constants.binCount, constants.binCount, 1, integral2DBytes.data(), constants.binCount)) {
-            LOG_ERROR("Failed saving histogram");
-        }
-    }
-
+    saveIntegralsAsPngs(context, mainBuffers.integralImages, constants.binCount);
     #endif
-
+    
     #if TRANSFORMATION
-    LOG("Loading transformation");
-
-    // read back the cube of vec4s (count = binCount^3)
-    std::vector<float> transformation(count * 4);
-    getDataFromBufferWithStagingBuffer(
-        context, 
-        &mainBuffers.transformationBuffer, 
-        transformation.data(), 
-        sizeof(float) * count * 4
-    );
-
-    std::vector<float> bTransformation(count * 4);
-    getDataFromBufferWithStagingBuffer(
-        context, 
-        &baseBuffers.transformationBuffer, 
-        bTransformation.data(), 
-        sizeof(float) * count * 4
-    );
-
-    // parameters
-    int binCount = constants.binCount;
-    int tilesX = (int)std::ceil(std::sqrt((float)binCount)); // e.g. 16 if binCount=256
-    int tilesY = (binCount + tilesX - 1) / tilesX;
-
-    int sliceSize = binCount * binCount;    // one z-slice
-    int outWidth  = binCount * tilesX;
-    int outHeight = binCount * tilesY;
-
-    // buffer for packed image
-    std::vector<float> packed(outWidth * outHeight * 4, 0.0f);
-
-    // pack the 3D cube into 2D tiled slices
-    for (int z = 0; z < binCount; ++z) {
-        int tileX = z % tilesX;
-        int tileY = z / tilesX;
-
-        for (int y = 0; y < binCount; ++y) {
-            for (int x = 0; x < binCount; ++x) {
-                int inIndex  = (x + y * binCount + z * binCount * binCount) * 4;
-                int outX     = x + tileX * binCount;
-                int outY     = y + tileY * binCount;
-                int outIndex = (outX + outY * outWidth) * 4;
-
-                packed[outIndex + 0] = transformation[inIndex + 0] - bTransformation[inIndex + 0];
-                packed[outIndex + 1] = transformation[inIndex + 1] - bTransformation[inIndex + 1];
-                packed[outIndex + 2] = transformation[inIndex + 2] - bTransformation[inIndex + 2];
-                packed[outIndex + 3] = 1;
-
-                if(x == binCount-1 && y == binCount-1 && z == binCount-1) {
-                    std::cout << packed[outIndex + 0] << ", "  << packed[outIndex + 1] << ", "  << packed[outIndex + 2] << std::endl;
-                }
-            }
-        }
-    }
-
-    LOG("Saving transformation.png");
-
-    auto clampf = [](float v, float lo, float hi) {
-        return (v < lo) ? lo : (v > hi ? hi : v);
-    };
-
-    std::vector<uint8_t> packed8(packed.size());
-    for (size_t i = 0; i < packed.size(); ++i) {
-        packed8[i] = (uint8_t)clampf(packed[i] * 255.0f, 0.0f, 255.0f);
-    }
-
-    if (!stbi_write_png("transformation.png", outWidth, outHeight, 4, packed8.data(), outWidth * 4)) {
-        LOG_ERROR("Failed saving transformation");
-    }
+    saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount);
     #endif
 
    

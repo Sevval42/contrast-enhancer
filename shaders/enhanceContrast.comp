@@ -62,7 +62,7 @@ void main() {
     }
 
     float maxBin = constants.binCount-1;
-    vec4 color = imageLoad(img, pixelCoords) + vec4((random(pixelCoords)*2.0-1.0)*5e-5, 0);
+    vec4 color = imageLoad(img, pixelCoords) + vec4((random(pixelCoords)*2.0-1.0)*5e-6, 0);
     color *= maxBin;
 
     /* 1. Ansatz
