@@ -17,6 +17,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define RANDIMG true
+#define INTEGRALS false
+#define TRANSFORMATION true
+
 int ITERATIONS = 50;
 
 UniformData constants;
@@ -61,9 +65,38 @@ void initApplication(std::string imageFile) {
     // TODO: Change loading of constants to yaml file
     constants = {
         128,
-        0,
+        3,
         0
     };
+
+    #if RANDIMG
+    const int size = 256;
+    const int randchannels = 4;
+    const int stride_in_bytes = size * randchannels;
+    int minVal = 30;
+    int maxVal = 225;
+
+    // Seed RNG
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    // Allocate pixel buffer (unsigned char for 0–255 range)
+    std::vector<unsigned char> randImg(size * size * randchannels);
+
+    // Fill with random colors
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            int idx = (y * size + x) * randchannels;
+            randImg[idx + 0] = minVal + (std::rand() % (maxVal - minVal + 1));
+            randImg[idx + 1] = minVal + (std::rand() % (maxVal - minVal + 1));
+            randImg[idx + 2] = minVal + (std::rand() % (maxVal - minVal + 1));
+            randImg[idx + 3] = 255;
+        }
+    }
+    if (!stbi_write_png("../images/randomImage.png", size, size, randchannels, randImg.data(), stride_in_bytes)) {
+        std::cerr << "Failed to write image!" << std::endl;
+    }
+    #endif
+
 
     int w,h,channels;
     stbi_ldr_to_hdr_gamma(1.0f);
@@ -71,8 +104,21 @@ void initApplication(std::string imageFile) {
     if (!pixels) {
         throw std::runtime_error("Failed to load image");
     }
-        mainBuffers.imageSize = size_t(w) * h * 4 * sizeof(float); // forcing 4 channels
-        baseBuffers.imageSize = mainBuffers.imageSize;
+
+    size_t numPixels = size_t(w) * h;
+    mainBuffers.imageSize = numPixels * 4 * sizeof(float); // forcing 4 channels
+    baseBuffers.imageSize = mainBuffers.imageSize;
+
+    float maxC = -1.0f, minC = 1e6f;
+
+    for (size_t p = 0; p < numPixels; ++p) {
+        const float* pixel = pixels + p * 4;
+        for (int c = 0; c < 3; ++c) {
+            if (pixel[c] > maxC) maxC = pixel[c];
+            if (pixel[c] < minC) minC = pixel[c];
+        }
+    }
+    std::cout << "Range: [" << minC*255 << "," << maxC*255 << "]" << std::endl;
 
     float baseDensity = (float)(w*h) / pow(constants.binCount, 3);
     constants.baseDensity = baseDensity;
@@ -245,7 +291,7 @@ int main(int argc, char* argv[]) {
         int x = i % constants.binCount;
         int y = floor(i/constants.binCount);
         for(int z = 0; z < constants.binCount; ++z) {
-            int getIndex = z + x * constants.binCount + y * constants.binCount * constants.binCount;
+            int getIndex = x + z * constants.binCount + y * constants.binCount * constants.binCount;
             histogram2D[i] += histogram[getIndex];
         }
     }
@@ -269,6 +315,120 @@ int main(int argc, char* argv[]) {
     if(!stbi_write_png("histogram.png", constants.binCount, constants.binCount, 1, histogram2DBytes.data(), constants.binCount)) {
         LOG_ERROR("Failed saving histogram");
     }
+
+    #if INTEGRALS
+
+    for(int i = 0; i < mainBuffers.integralImages.size(); ++i) {
+        std::vector<float> integral(count);
+        getDataFromBufferWithStagingBuffer(context, &mainBuffers.integralImages[i], integral.data(), sizeof(float) * count);
+
+        LOG("Calculating 2D accumulated histogram");
+        int integral2DCount = pow(constants.binCount, 2);
+        std::vector<float> integral2D(integral2DCount);
+        for(uint32_t i = 0; i < integral2DCount; ++i) {
+            int x = i % constants.binCount;
+            int y = floor(i/constants.binCount);
+            for(int z = 0; z < constants.binCount; ++z) {
+                int getIndex = z + x * constants.binCount + y * constants.binCount * constants.binCount;
+                integral2D[i] += integral[getIndex];
+            }
+        }
+
+        float max = 0;
+        for(uint32_t i = 0; i < integral2DCount; ++i) {
+            if(integral2D[i]>max) {
+                max = integral2D[i];
+            }
+        }
+
+        for(uint32_t i = 0; i < integral2DCount; ++i) {
+            integral2D[i] = integral2D[i] / max * 255.0f;
+        }
+
+        std::vector<uint8_t> integral2DBytes(integral2DCount);
+        for (size_t i = 0; i < integral2DCount; ++i) {
+            integral2DBytes[i] = static_cast<uint8_t>(integral2D[i]);
+        }
+
+        if(!stbi_write_png(("integral" + std::to_string(i) + ".png").c_str(), constants.binCount, constants.binCount, 1, integral2DBytes.data(), constants.binCount)) {
+            LOG_ERROR("Failed saving histogram");
+        }
+    }
+
+    #endif
+
+    #if TRANSFORMATION
+    LOG("Loading transformation");
+
+    // read back the cube of vec4s (count = binCount^3)
+    std::vector<float> transformation(count * 4);
+    getDataFromBufferWithStagingBuffer(
+        context, 
+        &mainBuffers.transformationBuffer, 
+        transformation.data(), 
+        sizeof(float) * count * 4
+    );
+
+    std::vector<float> bTransformation(count * 4);
+    getDataFromBufferWithStagingBuffer(
+        context, 
+        &baseBuffers.transformationBuffer, 
+        bTransformation.data(), 
+        sizeof(float) * count * 4
+    );
+
+    // parameters
+    int binCount = constants.binCount;
+    int tilesX = (int)std::ceil(std::sqrt((float)binCount)); // e.g. 16 if binCount=256
+    int tilesY = (binCount + tilesX - 1) / tilesX;
+
+    int sliceSize = binCount * binCount;    // one z-slice
+    int outWidth  = binCount * tilesX;
+    int outHeight = binCount * tilesY;
+
+    // buffer for packed image
+    std::vector<float> packed(outWidth * outHeight * 4, 0.0f);
+
+    // pack the 3D cube into 2D tiled slices
+    for (int z = 0; z < binCount; ++z) {
+        int tileX = z % tilesX;
+        int tileY = z / tilesX;
+
+        for (int y = 0; y < binCount; ++y) {
+            for (int x = 0; x < binCount; ++x) {
+                int inIndex  = (x + y * binCount + z * binCount * binCount) * 4;
+                int outX     = x + tileX * binCount;
+                int outY     = y + tileY * binCount;
+                int outIndex = (outX + outY * outWidth) * 4;
+
+                packed[outIndex + 0] = transformation[inIndex + 0] - bTransformation[inIndex + 0];
+                packed[outIndex + 1] = transformation[inIndex + 1] - bTransformation[inIndex + 1];
+                packed[outIndex + 2] = transformation[inIndex + 2] - bTransformation[inIndex + 2];
+                packed[outIndex + 3] = 1;
+
+                if(x == binCount-1 && y == binCount-1 && z == binCount-1) {
+                    std::cout << packed[outIndex + 0] << ", "  << packed[outIndex + 1] << ", "  << packed[outIndex + 2] << std::endl;
+                }
+            }
+        }
+    }
+
+    LOG("Saving transformation.png");
+
+    auto clampf = [](float v, float lo, float hi) {
+        return (v < lo) ? lo : (v > hi ? hi : v);
+    };
+
+    std::vector<uint8_t> packed8(packed.size());
+    for (size_t i = 0; i < packed.size(); ++i) {
+        packed8[i] = (uint8_t)clampf(packed[i] * 255.0f, 0.0f, 255.0f);
+    }
+
+    if (!stbi_write_png("transformation.png", outWidth, outHeight, 4, packed8.data(), outWidth * 4)) {
+        LOG_ERROR("Failed saving transformation");
+    }
+    #endif
+
    
     shutdownApplication();
     return 1;

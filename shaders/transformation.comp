@@ -30,9 +30,9 @@ void main() {
     if(any(greaterThanEqual(color, ivec3(int(constants.binCount))))) return;
 
     vec3 q000, q001, q010, q011, q100, q101, q110, q111;
-    float x = color.x / maxBin;
-    float y = color.y / maxBin;
-    float z = color.z / maxBin;
+    float x = color.x / float(maxBin);
+    float y = color.y / float(maxBin);
+    float z = color.z / float(maxBin);
     float i = color.x;
     float j = color.y;
     float k = color.z;
@@ -130,6 +130,6 @@ void main() {
         + q001 * weight110
         + q000 * weight111;
 
-    map *= 1.0 / sumWeights;
+    map *= float(maxBin) / sumWeights;
     transformation.values[index] = vec4(map, 0);
 }

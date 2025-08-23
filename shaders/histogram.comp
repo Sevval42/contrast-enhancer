@@ -11,6 +11,11 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
     uint values[];
 } histogram;
 
+uint getIndex(ivec3 x) {
+    uint bins = constants.binCount;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
 layout(local_size_x = 16, local_size_y = 16) in;
 void main() {
     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
@@ -18,7 +23,53 @@ void main() {
         return;
     }
 
-    vec4 color = imageLoad(img, pixelCoords);
+    vec3 color = imageLoad(img, pixelCoords).xyz;// * float(constants.binCount-1);
+
+    /*float red = color.x;
+    float green = color.y;
+    float blue = color.z;
+
+    uint r0 = uint(floor(red));
+    uint g0 = uint(floor(green));
+    uint b0 = uint(floor(blue));
+    uint r1 = min(r0 + 1, constants.binCount-1u);
+    uint g1 = min(g0 + 1, constants.binCount-1u);
+    uint b1 = min(b0 + 1, constants.binCount-1u);
+
+    float dr = red - float(r0);
+    float dg = green - float(g0);
+    float db = blue - float(b0);
+
+    // Trilinear interpolation weights
+    float w000 = (1 - dr) * (1 - dg) * (1 - db);
+    float w001 = (1 - dr) * (1 - dg) * db;
+    float w010 = (1 - dr) * dg * (1 - db);
+    float w011 = (1 - dr) * dg * db;
+    float w100 = dr * (1 - dg) * (1 - db);
+    float w101 = dr * (1 - dg) * db;
+    float w110 = dr * dg * (1 - db);
+    float w111 = dr * dg * db;
+    
+    const float scale = 1024.0;
+    uint c000 = uint(round(w000 * scale));
+    uint c001 = uint(round(w001 * scale));
+    uint c010 = uint(round(w010 * scale));
+    uint c011 = uint(round(w011 * scale));
+    uint c100 = uint(round(w100 * scale));
+    uint c101 = uint(round(w101 * scale));
+    uint c110 = uint(round(w110 * scale));
+    uint c111 = uint(round(w111 * scale));
+
+    atomicAdd(histogram.values[getIndex(ivec3(r0, g0, b0))], c000);
+    atomicAdd(histogram.values[getIndex(ivec3(r0, g0, b1))], c001);
+    atomicAdd(histogram.values[getIndex(ivec3(r0, g1, b0))], c010);
+    atomicAdd(histogram.values[getIndex(ivec3(r0, g1, b1))], c011);
+    atomicAdd(histogram.values[getIndex(ivec3(r1, g0, b0))], c100);
+    atomicAdd(histogram.values[getIndex(ivec3(r1, g0, b1))], c101);
+    atomicAdd(histogram.values[getIndex(ivec3(r1, g1, b0))], c110);
+    atomicAdd(histogram.values[getIndex(ivec3(r1, g1, b1))], c111);*/
+
+    
 
     uint rBin = min(uint(floor(color.r * float(constants.binCount))), constants.binCount - 1u);
     uint gBin = min(uint(floor(color.g * float(constants.binCount))), constants.binCount - 1u);

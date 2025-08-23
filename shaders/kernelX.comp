@@ -39,7 +39,7 @@ void main() {
     for(int i = -radius; i <= radius; i++) {
         int neighborIndex = color.r+i;
         if(neighborIndex < 0 || neighborIndex >= int(constants.binCount)) continue;
-        sum += histogram.values[getIndex(ivec3(neighborIndex, color.gb))] * gauss.values[i+radius];
+        sum += histogram.values[getIndex(ivec3(neighborIndex, color.gb))] * gauss.values[i+radius];// / 1024.0;
         weight += gauss.values[i+radius];
     }
     sum /= weight;

@@ -107,7 +107,7 @@ void setupDescriptorSet(
     descriptorSet->addBufferAndData(context, 
         &buffers->transformationBuffer, 
         NULL, 
-        4*sizeof(float) * binC * binC * binC, // vec3 still need 16 bytes!!!
+        4*sizeof(float) * binC * binC * binC,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -169,7 +169,6 @@ void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* des
 }
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
-    destroyBuffer(context, &stageBuffers->baseDensityTransformation);
     destroyBuffer(context, &stageBuffers->transformationBuffer);
     for(auto& intImg : stageBuffers->integralImages) {
         destroyBuffer(context, &intImg);

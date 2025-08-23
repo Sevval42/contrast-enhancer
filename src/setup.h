@@ -19,7 +19,6 @@ struct StageBuffers {
     std::vector<VulkanBuffer> integralImages;
 
     VulkanBuffer transformationBuffer;
-    VulkanBuffer baseDensityTransformation;
 };
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers);
