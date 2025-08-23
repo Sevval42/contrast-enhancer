@@ -6,14 +6,14 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
     float d0;
 } constants;
 
-layout(set = 0, binding =  6) buffer integralBuffer000 { float values[]; } int000;
-layout(set = 0, binding =  7) buffer integralBuffer001 { float values[]; } int001;
-layout(set = 0, binding =  8) buffer integralBuffer010 { float values[]; } int010;
-layout(set = 0, binding =  9) buffer integralBuffer011 { float values[]; } int011;
-layout(set = 0, binding = 10) buffer integralBuffer100 { float values[]; } int100;
-layout(set = 0, binding = 11) buffer integralBuffer101 { float values[]; } int101;
-layout(set = 0, binding = 12) buffer integralBuffer110 { float values[]; } int110;
-layout(set = 0, binding = 13) buffer integralBuffer111 { float values[]; } int111;
+layout(set = 0, binding =  5) buffer integralBuffer000 { float values[]; } int000;
+layout(set = 0, binding =  6) buffer integralBuffer001 { float values[]; } int001;
+layout(set = 0, binding =  7) buffer integralBuffer010 { float values[]; } int010;
+layout(set = 0, binding =  8) buffer integralBuffer011 { float values[]; } int011;
+layout(set = 0, binding =  9) buffer integralBuffer100 { float values[]; } int100;
+layout(set = 0, binding = 10) buffer integralBuffer101 { float values[]; } int101;
+layout(set = 0, binding = 11) buffer integralBuffer110 { float values[]; } int110;
+layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int111;
 
 uint getIndex(ivec3 x) {
     uint bins = constants.binCount;

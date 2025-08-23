@@ -17,7 +17,7 @@ void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_
         int x = i % binCount;
         int y = floor(i/binCount);
         for(int z = 0; z < binCount; ++z) {
-            int getIndex = x + z * binCount + y * binCount * binCount;
+            int getIndex = z + x * binCount + y * binCount * binCount;
             histogram2D[i] += data[getIndex];
         }
     }

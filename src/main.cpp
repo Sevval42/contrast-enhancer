@@ -22,9 +22,10 @@
 
 
 #define RANDIMG false
-#define INTEGRALS true
-#define TRANSFORMATION true
-#define VIDEO true
+#define INTEGRALS false
+#define TRANSFORMATION false
+#define VIDEO false
+#define INVERT false
 
 int ITERATIONS = 50;
 
@@ -69,8 +70,8 @@ void initApplication(std::string imageFile) {
 
     // TODO: Change loading of constants to yaml file
     constants = {
-        64,
-        2,
+        128,
+        1,
         0
     };
 
@@ -117,8 +118,11 @@ void initApplication(std::string imageFile) {
     float maxC = -1.0f, minC = 1e6f;
 
     for (size_t p = 0; p < numPixels; ++p) {
-        const float* pixel = pixels + p * 4;
+        float* pixel = pixels + p * 4;
         for (int c = 0; c < 3; ++c) {
+            #if INVERT
+            pixel[c] = 1.0 - pixel[c];
+            #endif
             if (pixel[c] > maxC) maxC = pixel[c];
             if (pixel[c] < minC) minC = pixel[c];
         }
@@ -147,17 +151,13 @@ void initApplication(std::string imageFile) {
 
 
     std::vector<const char*> baseComputeShaders;
-    baseComputeShaders.push_back("../shaders/kernelX.spv");
-    baseComputeShaders.push_back("../shaders/kernelY.spv");
-    baseComputeShaders.push_back("../shaders/kernelZ.spv");
+    baseComputeShaders.push_back("../shaders/kernel.spv");
     baseComputeShaders.push_back("../shaders/integralX.spv");
     baseComputeShaders.push_back("../shaders/integralY.spv");
     baseComputeShaders.push_back("../shaders/integralZ.spv");
     baseComputeShaders.push_back("../shaders/transformation.spv");
 
     std::vector<ivec3> baseDispatches = {
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
@@ -169,9 +169,7 @@ void initApplication(std::string imageFile) {
 
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
-    computeShaders.push_back("../shaders/kernelX.spv");
-    computeShaders.push_back("../shaders/kernelY.spv");
-    computeShaders.push_back("../shaders/kernelZ.spv");
+    computeShaders.push_back("../shaders/kernel.spv");
     computeShaders.push_back("../shaders/integralX.spv");
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
@@ -180,8 +178,6 @@ void initApplication(std::string imageFile) {
 
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},

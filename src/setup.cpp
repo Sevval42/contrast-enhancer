@@ -26,7 +26,6 @@ void setupDescriptorSet(
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);    // Image
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Histogram
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // KernelBuffer
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Temp kernelBuffer
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // exp look up table
     for(int i = 0; i < buffers->integralImages.size(); ++i)
         addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
@@ -73,23 +72,24 @@ void setupDescriptorSet(
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
-    descriptorSet->addBufferAndData(context, 
-        &buffers->kernelBufferTemp, 
-        NULL, 
-        sizeof(float) * binC * binC * binC, 
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );
-
-    float lookUp[constants->kernelRadius * 2 + 1];
+    size_t lookupCount = (int)pow(constants->kernelRadius * 2 + 1, 3);
+    float lookUp[lookupCount];
     int radius = (int)constants->kernelRadius;
-    for(int i = -radius; i <= radius; ++i) {
-        lookUp[i+radius] = std::exp(-(i * i) / (2.0f * sigma * sigma)); // TODO Change to 3D and one shader
+    int idx = 0;
+    float sigma2 = 2*sigma*sigma;
+    for (int z = -radius; z <= radius; ++z) {
+        for (int y = -radius; y <= radius; ++y) {
+            for (int x = -radius; x <= radius; ++x) {
+                float dist2 = float(x*x + y*y + z*z);
+                lookUp[idx++] = std::exp(-dist2 / sigma2);
+            }
+        }
     }
+
     descriptorSet->addBufferAndData(context, 
         &buffers->expLookUp, 
         lookUp, 
-        sizeof(float) * (constants->kernelRadius*2+1), 
+        sizeof(float) * lookupCount, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );

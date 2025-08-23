@@ -14,11 +14,7 @@ layout(set = 0, binding = 3) buffer KernelBuffer {
     float values[];
 } kernelHistogram;
 
-layout(set = 0, binding = 4) buffer KernelBufferTemp {
-    float values[];
-} kernelHistogramTemp;
-
-layout(set = 0, binding = 5) buffer GaussLookUpBuffer {
+layout(set = 0, binding = 4) buffer GaussLookUpBuffer {
     float values[];
 } gauss;
 
@@ -36,11 +32,19 @@ void main() {
     float sum = 0;
     float weight = 0;
     
-    for(int i = -radius; i <= radius; i++) {
-        int neighborIndex = color.r+i;
-        if(neighborIndex < 0 || neighborIndex >= int(constants.binCount)) continue;
-        sum += histogram.values[getIndex(ivec3(neighborIndex, color.gb))] * gauss.values[i+radius];// / 1024.0;
-        weight += gauss.values[i+radius];
+    int maxIndex = int(pow(constants.binCount, 3));
+    uint size = constants.radius * 2 + 1;
+    for (int z = -radius; z <= radius; ++z) {
+        for (int y = -radius; y <= radius; ++y) {
+            for (int x = -radius; x <= radius; ++x) {
+                int neighborIndex = int(getIndex(color + ivec3(x, y, z)));
+                if(neighborIndex < 0 || neighborIndex >= maxIndex) continue;
+
+                uint weightIndex = (z + radius) * size * size + (y + radius) * size + (x + radius);
+                sum += histogram.values[neighborIndex] * gauss.values[weightIndex];
+                weight += gauss.values[weightIndex];
+            }
+        }
     }
     sum /= weight;
     kernelHistogram.values[getIndex(color)] = constants.d0 + sum;
