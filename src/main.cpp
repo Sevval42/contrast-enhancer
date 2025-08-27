@@ -15,6 +15,7 @@
 #include "vulkan_base/vulkan_base.h"
 #include "debug.h"
 #include "setup.h"
+#include <yaml-cpp/yaml.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -43,6 +44,14 @@ StageBuffers mainBuffers;
 
 float sigma = 1.0;
 
+void loadConstantsFromYaml(UniformData* constants) {
+    YAML::Node config = YAML::LoadFile("../config.yaml");
+    constants->binCount = config["histogramBinCount"].as<int>();
+    constants->kernelRadius = config["kernelRadius"].as<int>();
+    constants->baseDensity = 0; // will be set by the program automatically
+    ITERATIONS = config["iterations"].as<int>();
+}
+
 void initApplication(std::string imageFile) {
 
     const char* instanceExtensions[] = {
@@ -67,13 +76,6 @@ void initApplication(std::string imageFile) {
         deviceExtensionsCount, 
         deviceExtensions
     );
-
-    // TODO: Change loading of constants to yaml file
-    constants = {
-        128,
-        1,
-        0
-    };
 
     #if RANDIMG
     const int size = 256;
@@ -229,6 +231,7 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
 
 
 int main(int argc, char* argv[]) {
+    loadConstantsFromYaml(&constants);
     std::string fileName = "../images/input.png";
     if(argc >= 3) {
         ITERATIONS = atoi(argv[2]);

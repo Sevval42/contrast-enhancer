@@ -18,7 +18,7 @@ To run this project, execute the following commands in the project directory:
 cmake --preset windows
 cmake --build .\build\
 cd bin
-.\vulkan_compute_boilerplate.exe
+.\vulkan_compute_boilerplate.exe "exampleImage.png"
 ```
 
 #### MacOS
@@ -26,8 +26,14 @@ cd bin
 cmake --preset mac
 cmake --build build
 cd bin
-./vulkan_compute_boilerplate
+./vulkan_compute_boilerplate "exampleImage.png"
 ```
+The "exampleImage.png" must be in the images/ directory.
+
+### Program constants
+Constants like the histogram resolution, the size of the gauss kernel and the number of iterations can be set in the config.yaml file.
+As the total number of values in the histogram grows cubically, the value of histogramBinCount should not surpass 256 for performance and memory reasons.
+
 
 ### LICENSE
 MIT

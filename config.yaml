@@ -1,0 +1,3 @@
+histogramBinCount: 128
+kernelRadius: 3
+iterations: 100

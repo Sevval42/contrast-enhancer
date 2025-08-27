@@ -18,7 +18,16 @@ FetchContent_Declare(
     GIT_TAG master
 )
 
-FetchContent_MakeAvailable(stb)
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG        yaml-cpp-0.7.0   # pick a stable release tag
+)
+
+FetchContent_MakeAvailable(
+    stb
+    yaml-cpp
+)
 
 find_package(Vulkan REQUIRED)
 
@@ -37,5 +46,6 @@ endif()
 add_executable(contrast_enhancer ${SOURCE_FILES})
 
 target_link_libraries(contrast_enhancer PUBLIC Vulkan::Vulkan)
+target_link_libraries(contrast_enhancer PRIVATE yaml-cpp)
 
 target_include_directories(contrast_enhancer PRIVATE ${stb_SOURCE_DIR})
