@@ -12,9 +12,9 @@ layout(set = 0, binding = 13) buffer transformationBuffer { vec4 values[]; } tra
 
 layout(set = 0, binding = 14) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
 
-uint getIndex(uvec3 x) {
-    uint bins = constants.binCount;
-    return x.r + x.g * bins + x.b * bins * bins;
+uint getIndex(uvec3 x) { // for transformation only
+    uint w = constants.binCount+1;
+    return x.r + x.g * w + x.b * w * w;
 }
 
 
@@ -61,25 +61,17 @@ void main() {
         return;
     }
 
-    float maxBin = constants.binCount-1;
-    vec4 color = imageLoad(img, pixelCoords) + vec4((random(pixelCoords)*2.0-1.0)*5e-6, 0);
+    float maxBin = constants.binCount;
+    vec4 color = imageLoad(img, pixelCoords) + vec4((random(pixelCoords)*2.0-1.0)*5e-5, 0);
+    color = max(vec4(0), min(vec4(1), color));
     color *= maxBin;
 
-    /* 1. Ansatz
-    uint rBin = min(uint(floor(color.r)), constants.binCount - 1u);
-    uint gBin = min(uint(floor(color.g)), constants.binCount - 1u);
-    uint bBin = min(uint(floor(color.b)), constants.binCount - 1u);
-
-    uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
-    vec3 newColor = color.xyz + transformation.values[binIndex].xyz - baseTransformation.values[binIndex].xyz;*/
-
-    // Interpolation
     float r0 = floor(color.x);
     float g0 = floor(color.y);
     float b0 = floor(color.z);
-    float r1 = min(r0 + 1, constants.binCount-1u);
-    float g1 = min(g0 + 1, constants.binCount-1u);
-    float b1 = min(b0 + 1, constants.binCount-1u);
+    float r1 = min(r0 + 1, constants.binCount);
+    float g1 = min(g0 + 1, constants.binCount);
+    float b1 = min(b0 + 1, constants.binCount);
 
     float rd = color.x - r0;
     float gd = color.y - g0;

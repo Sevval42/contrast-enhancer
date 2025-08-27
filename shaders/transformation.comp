@@ -21,8 +21,9 @@ layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int11
 
 layout(set = 0, binding = 13, std140) buffer transformationBuffer { vec4 values[]; } transformation;
 
-int getIndex(ivec3 x) {
+int getIndex(ivec3 x) { // For integrals!
     if(any(lessThan(x, ivec3(0)))) return -1;
+    if(any(greaterThanEqual(x, ivec3(constants.binCount)))) return -1;
     int bins = int(constants.binCount);
     return x.r + x.g * bins + x.b * bins * bins;
 }
@@ -32,7 +33,7 @@ void main() {
     float maxBin = constants.binCount;
 
     ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
-    if(any(greaterThanEqual(color, uvec3(uint(constants.binCount))))) return;
+    if(any(greaterThan(color, uvec3(uint(constants.binCount))))) return;
 
     vec3 q000, q001, q010, q011, q100, q101, q110, q111;
     float x = color.x / float(maxBin);
@@ -114,7 +115,7 @@ void main() {
         q111 = vec3(x - z + 1, y - z + 1, 1);
     }
 
-    uint index = getIndex(color);
+    /*uint index = getIndex(color);
     float weight000 = int000.values[index];
     float weight001 = int001.values[index];
     float weight010 = int010.values[index];
@@ -122,9 +123,8 @@ void main() {
     float weight100 = int100.values[index];
     float weight101 = int101.values[index];
     float weight110 = int110.values[index];
-    float weight111 = int111.values[index];
+    float weight111 = int111.values[index];*/
 
-    /*uint index = getIndex(color);
     uint index000 = getIndex(ivec3(i-1, j-1, k-1));
     float weight000 = index000 == -1 ? 0 :  int000.values[index000];
 
@@ -147,7 +147,7 @@ void main() {
     float weight110 = index110 == -1 ? 0 :  int110.values[index110];
 
     uint index111 = getIndex(ivec3(i, j, k));
-    float weight111 = index111 == -1 ? 0 :  int111.values[index111];*/
+    float weight111 = index111 == -1 ? 0 :  int111.values[index111];
 
     float sumWeights = weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111;
 
@@ -162,6 +162,9 @@ void main() {
         + q000 * weight111;
 
     map *= float(maxBin) / sumWeights;
-    transformation.values[getIndex(color)] = vec4(map, 0);
-    histogram.values[getIndex(color)] = 0;
+    uint trIndex = 
+        uint(i + j * (maxBin+1) + k * (maxBin+1) * (maxBin+1)); 
+    transformation.values[trIndex] = vec4(map, 0);
+    if(any(lessThan(ivec3(color), ivec3(maxBin))))
+        histogram.values[getIndex(color)] = 0;
 }

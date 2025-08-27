@@ -20,10 +20,11 @@ uint getIndex(ivec3 x) {
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main() {
     uint binC = constants.binCount;
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
+    if(any(greaterThanEqual(row, uvec2(uint(constants.binCount))))) return;
     float sum00 = int000.values[getIndex(ivec3(row.x, 0, row.y))];
     float sum01 = int010.values[getIndex(ivec3(row.x, binC-1, row.y))];
     float sum10 = int100.values[getIndex(ivec3(row.x, 0, row.y))];

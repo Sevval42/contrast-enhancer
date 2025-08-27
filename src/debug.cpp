@@ -153,7 +153,7 @@ void saveTransformationAsPng(VulkanContext* context, VulkanBuffer* transformatio
                 packed[outIndex + 2] = transformationData[inIndex + 2] - baseTransformationData[inIndex + 2];
                 packed[outIndex + 3] = 1;
 
-                if(x == binCount-1 && y == binCount-1 && z == binCount-1) {
+                if(x == binCount-2 && y == binCount-2 && z == binCount-2) {
                     std::cout << packed[outIndex + 0] << ", "  << packed[outIndex + 1] << ", "  << packed[outIndex + 2] << std::endl;
                 }
             }

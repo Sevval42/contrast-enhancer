@@ -79,8 +79,8 @@ void initApplication(std::string imageFile) {
     const int size = 256;
     const int randchannels = 4;
     const int stride_in_bytes = size * randchannels;
-    int minVal = 30;
-    int maxVal = 225;
+    int minVal = 100;
+    int maxVal = 155;
 
     // Seed RNG
     std::srand(static_cast<unsigned>(std::time(nullptr)));
@@ -147,7 +147,8 @@ void initApplication(std::string imageFile) {
 
     LOG("Creating pipelines");
     int groupsKernel = constants.binCount / 8+1;
-    int groupsInt = constants.binCount / 1;
+    int groupsInt = constants.binCount / 16 + 1;
+    int transformationKernel = (constants.binCount+1) / 8 + 1;
 
 
     std::vector<const char*> baseComputeShaders;
@@ -162,7 +163,7 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{transformationKernel, transformationKernel, transformationKernel},
     };
     basePipeline = createPipeline(context, baseComputeShaders, baseDispatches, baseDescriptorSet);
 
@@ -182,7 +183,7 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
-        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{transformationKernel, transformationKernel, transformationKernel},
         ivec3{(int)w/16+1, (int)h/16+1, 1},
     };
     mainPipeline = createPipeline(context, computeShaders, dispatches, mainDescriptorSet);
@@ -283,7 +284,7 @@ int main(int argc, char* argv[]) {
     #endif
     
     #if TRANSFORMATION
-    saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount);
+    saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount+1);
     #endif
 
    

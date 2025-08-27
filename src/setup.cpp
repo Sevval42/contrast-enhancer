@@ -60,7 +60,7 @@ void setupDescriptorSet(
         &buffers->histogramBuffer, 
         NULL, 
         sizeof(uint32_t) * binC * binC * binC, 
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
@@ -99,15 +99,16 @@ void setupDescriptorSet(
             &intImg, 
             NULL, 
             sizeof(float) * binC * binC * binC, 
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
     }
 
+    size_t transformationSize = 4*sizeof(float) * (size_t)pow(binC+1, 3);
     descriptorSet->addBufferAndData(context, 
         &buffers->transformationBuffer, 
         NULL, 
-        4*sizeof(float) * binC * binC * binC,
+        transformationSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -116,7 +117,7 @@ void setupDescriptorSet(
         VkDescriptorBufferInfo bufferInfo = {};
         bufferInfo.buffer = baseTransformation->buffer;
         bufferInfo.offset = 0;
-        bufferInfo.range = 4*sizeof(float) * binC * binC * binC;
+        bufferInfo.range = transformationSize;
 
         VulkanDescriptorBufferInfo info{};
         info.bufferInfo = bufferInfo;
