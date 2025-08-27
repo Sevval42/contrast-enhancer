@@ -3,6 +3,7 @@
 #include "vulkan_base/vulkan_base.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
+#include <sstream>
 
 void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName) {
     LOG("Loading histogram from gpu");
@@ -43,42 +44,51 @@ void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_
     }
 }
 
-void saveIntegralsAsPngs(VulkanContext* context, std::vector<VulkanBuffer> integrals, uint32_t binCount) {
-    size_t count = pow(binCount, 3);
-    for(int i = 0; i < integrals.size(); ++i) {
-        std::vector<float> integral(count);
-        getDataFromBufferWithStagingBuffer(context, &integrals[i], integral.data(), sizeof(float) * count);
+inline std::string intToString(int value) {
+    std::stringstream ss;
+    ss << value;
+    return ss.str();
+}
+
+void saveIntegralsAsPngs(VulkanContext* context, std::vector<VulkanBuffer>& integrals, uint32_t binCount) {
+    const size_t count3D = static_cast<size_t>(binCount) * binCount * binCount;
+    const size_t count2D = static_cast<size_t>(binCount) * binCount;
+
+    for (size_t bufIdx = 0; bufIdx < integrals.size(); ++bufIdx) {
+        std::vector<float> integral(count3D);
+        getDataFromBufferWithStagingBuffer(context, &integrals[bufIdx], integral.data(), sizeof(float) * count3D);
 
         LOG("Calculating 2D accumulated histogram");
-        int integral2DCount = pow(binCount, 2);
-        std::vector<float> integral2D(integral2DCount);
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            int x = i % binCount;
-            int y = floor(i/binCount);
-            for(int z = 0; z < binCount; ++z) {
-                int getIndex = z + x * binCount + y * binCount * binCount;
-                integral2D[i] += integral[getIndex];
+
+        // Accumulate 3D integral into 2D
+        std::vector<float> integral2D(count2D, 0.0f);
+        for (uint32_t y = 0; y < binCount; ++y) {
+            for (uint32_t x = 0; x < binCount; ++x) {
+                for (uint32_t z = 0; z < binCount; ++z) {
+                    size_t index3D = z + x * binCount + y * binCount * binCount;
+                    size_t index2D = x + y * binCount;
+                    integral2D[index2D] += integral[index3D];
+                }
             }
         }
 
-        float max = 0;
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            if(integral2D[i]>max) {
-                max = integral2D[i];
-            }
+        // Find max value for normalization
+        float maxVal = 0.0f;
+        for (float val : integral2D) {
+            if (val > maxVal) maxVal = val;
+        }
+        if (maxVal == 0.0f) maxVal = 1.0f; // Avoid division by zero
+
+        // Convert to 8-bit grayscale
+        std::vector<uint8_t> integral2DBytes(count2D);
+        for (size_t i = 0; i < count2D; ++i) {
+            integral2DBytes[i] = static_cast<uint8_t>((integral2D[i] / maxVal) * 255.0f);
         }
 
-        for(uint32_t i = 0; i < integral2DCount; ++i) {
-            integral2D[i] = integral2D[i] / max * 255.0f;
-        }
-
-        std::vector<uint8_t> integral2DBytes(integral2DCount);
-        for (size_t i = 0; i < integral2DCount; ++i) {
-            integral2DBytes[i] = static_cast<uint8_t>(integral2D[i]);
-        }
-
-        if(!stbi_write_png(("integral" + std::to_string(i) + ".png").c_str(), binCount, binCount, 1, integral2DBytes.data(), binCount)) {
-            LOG_ERROR("Failed saving histogram");
+        // Save PNG
+        std::string filename = "integral" + intToString(static_cast<int>(bufIdx)) + ".png";
+        if (!stbi_write_png(filename.c_str(), binCount, binCount, 1, integral2DBytes.data(), binCount)) {
+            LOG_ERROR("Failed saving histogram: " + filename);
         }
     }
 }

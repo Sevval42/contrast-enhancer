@@ -6,6 +6,7 @@ build
 .cache
 images
 images/*
+*.spv
 
 # CMake
 CMakeLists.txt.user

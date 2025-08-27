@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
-
+cmake_minimum_required(VERSION 3.5...3.30)
 project(contrast_enhancer)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -21,7 +20,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG        yaml-cpp-0.7.0   # pick a stable release tag
+  GIT_TAG        0.8.0  # pick a stable release tag
 )
 
 FetchContent_MakeAvailable(
