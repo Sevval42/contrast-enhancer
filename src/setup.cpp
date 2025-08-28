@@ -15,24 +15,34 @@ void setupDescriptorSet(
     bool isBaseDensityRun
 ) {
     std::vector<float> baseHistogram((int)pow(constants->binCount, 3));
+
+    // sizes:
+    uint32_t binC = constants->binCount;
+    uint32_t histogramSize = sizeof(uint32_t) * binC * binC * binC;
+    uint32_t integralSize = sizeof(float) * binC * binC * binC;
+    uint32_t transformationSize = 4 * sizeof(float) * (binC+1) * (binC+1) * (binC+1);
     
     for(int i = 0; i < baseHistogram.size(); ++i) {
         baseHistogram[i] = 0;
     }
 
-    buffers->integralImages = std::vector<VulkanBuffer>(8);
+    buffers->integralImages = std::vector<VulkanBuffer>(14); // 8 Corners + 6 Faces for a Cube
+    buffers->tempIntegrals = std::vector<VulkanBuffer>(6); // One (big) temp Buffer for every face
 
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);   // Constants
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);    // Image
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Histogram
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // KernelBuffer
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // exp look up table
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);       // 0: Constant
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);        // 1: Image
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 2: Histogram
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 3: KernelBuffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 4: exp look up table
     for(int i = 0; i < buffers->integralImages.size(); ++i)
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // integral images
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 5-18: integral image
+
+    for(int i = 0; i < buffers->tempIntegrals.size(); ++i)
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 19-24: tempIntegrals
     
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Transformation buffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 25: Transformation buffer
     if(!isBaseDensityRun) {
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // Basedensity transformation buffer
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 26: Basedensity transformation buffer
     }
 
     createDescriptorSet(context, descriptorSet);
@@ -55,11 +65,10 @@ void setupDescriptorSet(
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
-    uint32_t binC = constants->binCount;
     descriptorSet->addBufferAndData(context, 
         &buffers->histogramBuffer, 
         NULL, 
-        sizeof(uint32_t) * binC * binC * binC, 
+        histogramSize, 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -67,7 +76,7 @@ void setupDescriptorSet(
     descriptorSet->addBufferAndData(context, 
         &buffers->kernelBuffer, 
         baseHistogram.data(), 
-        sizeof(float) * binC * binC * binC, 
+        integralSize, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -98,13 +107,22 @@ void setupDescriptorSet(
         descriptorSet->addBufferAndData(context, 
             &intImg, 
             NULL, 
-            sizeof(float) * binC * binC * binC, 
+            integralSize, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+    }
+
+    for(auto& tempInt : buffers->tempIntegrals) {
+        descriptorSet->addBufferAndData(context, 
+            &tempInt, 
+            NULL, 
+            integralSize * 4, // 4 or 5 temp histograms for every face integral 
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
     }
 
-    size_t transformationSize = 4*sizeof(float) * (size_t)pow(binC+1, 3);
     descriptorSet->addBufferAndData(context, 
         &buffers->transformationBuffer, 
         NULL, 
@@ -171,6 +189,9 @@ void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* des
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
     destroyBuffer(context, &stageBuffers->transformationBuffer);
+    for(auto& tempInt : stageBuffers->tempIntegrals) {
+        destroyBuffer(context, &tempInt);
+    }
     for(auto& intImg : stageBuffers->integralImages) {
         destroyBuffer(context, &intImg);
     }

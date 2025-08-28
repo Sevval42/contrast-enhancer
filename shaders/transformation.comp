@@ -19,7 +19,21 @@ layout(set = 0, binding = 10) buffer integralBuffer101 { float values[]; } int10
 layout(set = 0, binding = 11) buffer integralBuffer110 { float values[]; } int110;
 layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int111;
 
-layout(set = 0, binding = 13, std140) buffer transformationBuffer { vec4 values[]; } transformation;
+layout(set = 0, binding = 13) buffer integralBufferX0 { float values[]; } intX0;
+layout(set = 0, binding = 14) buffer integralBufferX1 { float values[]; } intX1;
+layout(set = 0, binding = 15) buffer integralBufferY0 { float values[]; } intY0;
+layout(set = 0, binding = 16) buffer integralBufferY1 { float values[]; } intY1;
+layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
+layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
+
+layout(set = 0, binding = 19) buffer tempIntBufferX0 { float values[]; } tempX0;
+layout(set = 0, binding = 20) buffer tempIntBufferX1 { float values[]; } tempX1;
+layout(set = 0, binding = 21) buffer tempIntBufferY0 { float values[]; } tempY0;
+layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
+layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
+layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
+
+layout(set = 0, binding = 25, std140) buffer transformationBuffer { vec4 values[]; } transformation;
 
 int getIndex(ivec3 x) { // For integrals!
     if(any(lessThan(x, ivec3(0)))) return -1;

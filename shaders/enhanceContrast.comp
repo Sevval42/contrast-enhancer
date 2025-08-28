@@ -8,9 +8,9 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
 
 layout(set = 0, binding = 1, rgba32f) uniform image2D img;
 
-layout(set = 0, binding = 13) buffer transformationBuffer { vec4 values[]; } transformation;
+layout(set = 0, binding = 25) buffer transformationBuffer { vec4 values[]; } transformation;
 
-layout(set = 0, binding = 14) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
+layout(set = 0, binding = 26) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
 
 uint getIndex(uvec3 x) { // for transformation only
     uint w = constants.binCount+1;

@@ -18,6 +18,9 @@ struct StageBuffers {
     // Integral images
     std::vector<VulkanBuffer> integralImages;
 
+    // Temp buffer for calculating rotated integrals
+    std::vector<VulkanBuffer> tempIntegrals;
+
     VulkanBuffer transformationBuffer;
 };
 

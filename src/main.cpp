@@ -21,16 +21,17 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-
+// Constants for debugging purposes
 #define RANDIMG false
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
 #define INVERT false
 
-int ITERATIONS = 50;
-
+// Program constants
+int ITERATIONS = 0;
 UniformData constants;
+float sigma = 1.0;
 
 VulkanContext* context;
 
@@ -42,14 +43,13 @@ VulkanDescriptorSet* mainDescriptorSet;
 VulkanPipeline mainPipeline;
 StageBuffers mainBuffers;
 
-float sigma = 1.0;
-
 void loadConstantsFromYaml(UniformData* constants) {
     YAML::Node config = YAML::LoadFile("../config.yaml");
     constants->binCount = config["histogramBinCount"].as<int>();
     constants->kernelRadius = config["kernelRadius"].as<int>();
     constants->baseDensity = 0; // will be set by the program automatically
     ITERATIONS = config["iterations"].as<int>();
+    sigma = config["gaussSigma"].as<float>();
 }
 
 void initApplication(std::string imageFile) {
