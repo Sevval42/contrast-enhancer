@@ -6,12 +6,10 @@
 #include <sstream>
 
 void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName) {
-    LOG("Loading histogram from gpu");
     uint32_t count = pow(binCount, 3);
     std::vector<float> data(count);
     getDataFromBufferWithStagingBuffer(context, histogram, data.data(), sizeof(float) * count);
 
-    LOG("Calculating 2D accumulated histogram");
     int histogram2DCount = pow(binCount, 2);
     std::vector<float> histogram2D(histogram2DCount);
     for(uint32_t i = 0; i < histogram2DCount; ++i) {
@@ -57,8 +55,6 @@ void saveIntegralsAsPngs(VulkanContext* context, std::vector<VulkanBuffer>& inte
     for (size_t bufIdx = 0; bufIdx < integrals.size(); ++bufIdx) {
         std::vector<float> integral(count3D);
         getDataFromBufferWithStagingBuffer(context, &integrals[bufIdx], integral.data(), sizeof(float) * count3D);
-
-        LOG("Calculating 2D accumulated histogram");
 
         // Accumulate 3D integral into 2D
         std::vector<float> integral2D(count2D, 0.0f);
@@ -182,4 +178,12 @@ void saveTransformationAsPng(VulkanContext* context, VulkanBuffer* transformatio
     if (!stbi_write_png("transformation.png", outWidth, outHeight, 4, packed8.data(), outWidth * 4)) {
         LOG_ERROR("Failed saving transformation");
     }
+}
+
+void printProgress(double percentage, int width, std::string bar, float avgTime) {
+    int val = (int) (percentage * 100);
+    int lpad = (int) (percentage * width);
+    int rpad = width - lpad;
+    printf("\r [%.*s%*s] %3d%% (%.1f ms)", lpad, bar.c_str(), rpad, "", val, avgTime);
+    fflush(stdout);
 }

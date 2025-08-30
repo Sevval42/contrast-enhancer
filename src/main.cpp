@@ -23,7 +23,7 @@
 
 // Constants for debugging purposes
 #define RANDIMG false
-#define INTEGRALS true
+#define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
 #define INVERT false
@@ -119,21 +119,8 @@ void initApplication(std::string imageFile) {
 
     float maxC = -1.0f, minC = 1e6f;
 
-    for (size_t p = 0; p < numPixels; ++p) {
-        float* pixel = pixels + p * 4;
-        for (int c = 0; c < 3; ++c) {
-            #if INVERT
-            pixel[c] = 1.0 - pixel[c];
-            #endif
-            if (pixel[c] > maxC) maxC = pixel[c];
-            if (pixel[c] < minC) minC = pixel[c];
-        }
-    }
-    std::cout << "Range: [" << minC*255 << "," << maxC*255 << "]" << std::endl;
-
     float baseDensity = (float)(w*h) / pow(constants.binCount, 3);
     constants.baseDensity = baseDensity;
-    std::cout << "Base density: " << baseDensity << std::endl;
 
     LOG("Creating descriptor set for base density");
 
@@ -214,6 +201,10 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = commandBuffer;
 
+    const int barWidth = 50;
+    float averageMillis = 0;
+    std::string loadingBar = std::string(barWidth, '|');
+
     for(int i = 0; i < iterations; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
@@ -222,8 +213,13 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         vkQueueWaitIdle(context->computeQueue.queue);
 
         
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
-        std::cout << "Iteration " << i+1 << " took " << duration.count() << " ms" << std::endl;
+        averageMillis += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
+        // Progress fraction
+        float progress = static_cast<float>(i + 1) / iterations;
+        int pos = static_cast<int>(barWidth * progress);
+
+        // Draw progress bar
+        printProgress(progress, barWidth, loadingBar, averageMillis/(i+1));
 
         #if VIDEO
         std::ostringstream oss;
@@ -231,6 +227,7 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str());
         #endif
     }
+    std::cout << std::endl;
 }
 
 
@@ -281,16 +278,19 @@ int main(int argc, char* argv[]) {
 
     LOG("Computing finished");
 
-
+    LOG("Save image as png");
     saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
 
+    LOG("Save histogram as png");
     saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogram.png").c_str());
 
     #if INTEGRALS
+    LOG("Save integrals as pngs");
     saveIntegralsAsPngs(context, mainBuffers.integralImages, constants.binCount);
     #endif
     
     #if TRANSFORMATION
+    LOG("Save transformation");
     saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount+1);
     #endif
 
