@@ -23,7 +23,7 @@
 
 // Constants for debugging purposes
 #define RANDIMG false
-#define INTEGRALS false
+#define INTEGRALS true
 #define TRANSFORMATION false
 #define VIDEO false
 #define INVERT false
@@ -158,10 +158,12 @@ void initApplication(std::string imageFile) {
     baseComputeShaders.push_back("../shaders/integralX.spv");
     baseComputeShaders.push_back("../shaders/integralY.spv");
     baseComputeShaders.push_back("../shaders/integralZ.spv");
+    baseComputeShaders.push_back("../shaders/integralD.spv");
     baseComputeShaders.push_back("../shaders/transformation.spv");
 
     std::vector<ivec3> baseDispatches = {
         ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
@@ -176,12 +178,14 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/integralX.spv");
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
+    computeShaders.push_back("../shaders/integralD.spv");
     computeShaders.push_back("../shaders/transformation.spv");
     computeShaders.push_back("../shaders/enhanceContrast.spv");
 
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},

@@ -36,10 +36,17 @@ layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 layout(set = 0, binding = 25, std140) buffer transformationBuffer { vec4 values[]; } transformation;
 
 int getIndex(ivec3 x) { // For integrals!
-    if(any(lessThan(x, ivec3(0)))) return -1;
-    if(any(greaterThanEqual(x, ivec3(constants.binCount)))) return -1;
     int bins = int(constants.binCount);
+    if(any(lessThan(x, ivec3(0)))) return -1;
+    if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return x.r + x.g * bins + x.b * bins * bins;
+}
+
+int getIndexTemp(int n, ivec3 x) {
+    int bins = int(constants.binCount);
+    if(any(lessThan(x, ivec3(0)))) return -1;
+    if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
+    return getIndex(x) + n * bins * bins * bins;
 }
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
@@ -139,31 +146,79 @@ void main() {
     float weight110 = int110.values[index];
     float weight111 = int111.values[index];*/
 
-    uint index000 = getIndex(ivec3(i-1, j-1, k-1));
+    int index000 = getIndex(ivec3(i-1, j-1, k-1));
     float weight000 = index000 == -1 ? 0 :  int000.values[index000];
 
-    uint index001 = getIndex(ivec3(i-1, j-1, k));
+    int index001 = getIndex(ivec3(i-1, j-1, k));
     float weight001 = index001 == -1 ? 0 :  int001.values[index001];
 
-    uint index010 = getIndex(ivec3(i-1, j, k-1));
+    int index010 = getIndex(ivec3(i-1, j, k-1));
     float weight010 = index010 == -1 ? 0 :  int010.values[index010];
 
-    uint index011 = getIndex(ivec3(i-1, j, k));
+    int index011 = getIndex(ivec3(i-1, j, k));
     float weight011 = index011 == -1 ? 0 :  int011.values[index011];
 
-    uint index100 = getIndex(ivec3(i, j-1, k-1));
+    int index100 = getIndex(ivec3(i, j-1, k-1));
     float weight100 = index100 == -1 ? 0 :  int100.values[index100];
 
-    uint index101 = getIndex(ivec3(i, j-1, k));
+    int index101 = getIndex(ivec3(i, j-1, k));
     float weight101 = index101 == -1 ? 0 :  int101.values[index101];
 
-    uint index110 = getIndex(ivec3(i, j, k-1));
+    int index110 = getIndex(ivec3(i, j, k-1));
     float weight110 = index110 == -1 ? 0 :  int110.values[index110];
 
-    uint index111 = getIndex(ivec3(i, j, k));
+    int index111 = getIndex(ivec3(i, j, k));
     float weight111 = index111 == -1 ? 0 :  int111.values[index111];
 
-    float sumWeights = weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111;
+    int id00 = getIndexTemp(0, ivec3(i-1, j-1, k-1));
+    int id01 = getIndexTemp(1, ivec3(i-1, j, k-1));
+    int id02 = getIndexTemp(2, ivec3(i, j-1, k-1));
+    int id03 = getIndexTemp(3, ivec3(i, j, k-1));
+
+    int id10 = getIndexTemp(0, ivec3(i-1, j-1, k));
+    int id11 = getIndexTemp(1, ivec3(i-1, j, k));
+    int id12 = getIndexTemp(2, ivec3(i, j-1, k));
+    int id13 = getIndexTemp(3, ivec3(i, j, k));
+    
+    float weightX0
+        = (id00 == -1 ? 0 : tempX0.values[id00])
+        + (id01 == -1 ? 0 : tempX0.values[id01])
+        + (id02 == -1 ? 0 : tempX0.values[id02])
+        + (id03 == -1 ? 0 : tempX0.values[id03]);
+    
+    float weightX1
+        = (id10 == -1 ? 0 : tempX1.values[id10])
+        + (id11 == -1 ? 0 : tempX1.values[id11])
+        + (id12 == -1 ? 0 : tempX1.values[id12])
+        + (id13 == -1 ? 0 : tempX1.values[id13]);
+    
+    float weightY0
+        = (id00 == -1 ? 0 : tempY0.values[id00])
+        + (id01 == -1 ? 0 : tempY0.values[id01])
+        + (id02 == -1 ? 0 : tempY0.values[id02])
+        + (id03 == -1 ? 0 : tempY0.values[id03]);
+    
+    float weightY1
+        = (id10 == -1 ? 0 : tempY1.values[id10])
+        + (id11 == -1 ? 0 : tempY1.values[id11])
+        + (id12 == -1 ? 0 : tempY1.values[id12])
+        + (id13 == -1 ? 0 : tempY1.values[id13]);
+    
+    float weightZ0
+        = (id00 == -1 ? 0 : tempZ0.values[id00])
+        + (id01 == -1 ? 0 : tempZ0.values[id01])
+        + (id02 == -1 ? 0 : tempZ0.values[id02])
+        + (id03 == -1 ? 0 : tempZ0.values[id03]);
+    
+    float weightZ1
+        = (id10 == -1 ? 0 : tempZ1.values[id10])
+        + (id11 == -1 ? 0 : tempZ1.values[id11])
+        + (id12 == -1 ? 0 : tempZ1.values[id12])
+        + (id13 == -1 ? 0 : tempZ1.values[id13]);
+    
+
+    float sumWeights = weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111
+                     + weightX0 + weightX1 + weightY0 + weightY1 + weightZ0 + weightZ1;
 
     vec3 map 
         = q111 * weight000
@@ -173,7 +228,22 @@ void main() {
         + q011 * weight100
         + q010 * weight101
         + q001 * weight110
-        + q000 * weight111;
+        + q000 * weight111
+        + vec3(1, y, z) * weightX0
+        + vec3(0, y, z) * weightX1
+        + vec3(x, 1, z) * weightY0
+        + vec3(x, 0, z) * weightY1
+        + vec3(x, y, 1) * weightZ0
+        + vec3(x, y, 0) * weightZ1;
+
+    if(any(lessThan(ivec3(color), ivec3(maxBin))) && any(greaterThanEqual(ivec3(color), ivec3(0)))) { // only for debugging right now
+        intX0.values[getIndex(ivec3(i, j, k))] = weightX0; 
+        intX1.values[getIndex(ivec3(i, j, k))] = weightX1;
+        intY0.values[getIndex(ivec3(i, j, k))] = weightY0;
+        intY1.values[getIndex(ivec3(i, j, k))] = weightY1;
+        intZ0.values[getIndex(ivec3(i, j, k))] = weightZ0;
+        intZ1.values[getIndex(ivec3(i, j, k))] = weightZ1;
+    }
 
     map *= float(maxBin) / sumWeights;
     uint trIndex = 

@@ -1,4 +1,4 @@
 histogramBinCount: 128
 kernelRadius: 3
-gaussSigma: 2.0
+gaussSigma: 1.5
 iterations: 30

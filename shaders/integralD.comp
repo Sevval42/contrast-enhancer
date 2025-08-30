@@ -1,0 +1,118 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint binCount;
+    uint radius;
+    float d0;
+} constants;
+
+layout(set = 0, binding = 13) buffer integralBufferX0 { float values[]; } intX0;
+layout(set = 0, binding = 14) buffer integralBufferX1 { float values[]; } intX1;
+layout(set = 0, binding = 15) buffer integralBufferY0 { float values[]; } intY0;
+layout(set = 0, binding = 16) buffer integralBufferY1 { float values[]; } intY1;
+layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
+layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
+
+layout(set = 0, binding = 19) buffer tempIntBufferX0 { float values[]; } tempX0;
+layout(set = 0, binding = 20) buffer tempIntBufferX1 { float values[]; } tempX1;
+layout(set = 0, binding = 21) buffer tempIntBufferY0 { float values[]; } tempY0;
+layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
+layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
+layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
+
+int getIndex(ivec3 x) {
+    int bins = int(constants.binCount);
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+int getIndexTemp(int n, ivec3 x) {
+    int bins = int(constants.binCount);
+    if(any(lessThan(x, ivec3(0)))) return -1;
+    if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
+    return getIndex(x) + n * bins * bins * bins;
+}
+
+void addSafeTempX0(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempX0.values[getIndexTemp(n, dst)] += tempX0.values[lowerIndex];
+}
+
+void addSafeTempX1(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempX1.values[getIndexTemp(n, dst)] += tempX1.values[lowerIndex];
+}
+
+void addSafeTempY0(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempY0.values[getIndexTemp(n, dst)] += tempY0.values[lowerIndex];
+}
+
+void addSafeTempY1(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempY1.values[getIndexTemp(n, dst)] += tempY1.values[lowerIndex];
+}
+
+void addSafeTempZ0(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempZ0.values[getIndexTemp(n, dst)] += tempZ0.values[lowerIndex];
+}
+
+void addSafeTempZ1(int n, ivec3 src, ivec3 dst) {
+    int lowerIndex = getIndexTemp(n, src);
+    if(lowerIndex != -1)
+        tempZ1.values[getIndexTemp(n, dst)] += tempZ1.values[lowerIndex];
+}
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main() {
+    int binC = int(constants.binCount);
+    ivec2 row = ivec2(gl_GlobalInvocationID.xy);
+    if(any(greaterThanEqual(row, ivec2(binC)))) return;
+
+    for(int i = 1; i < binC; ++i) {
+        // diagonal accumulation for rotated integrals
+        int shiftUp = (row.y-i+binC)%binC;
+        int shiftDown = (row.y+i)%binC;
+        int shiftLeft = (row.x-i+binC)%binC;
+        int shiftRight = (row.x+i)%binC;
+
+        // update tempInts with sums
+        // X0, X1
+        addSafeTempX0(0, ivec3(i-1, shiftRight-1, shiftDown-1), ivec3(i, shiftRight, shiftDown));
+        addSafeTempX0(1, ivec3(i-1, shiftRight-1, shiftUp+1), ivec3(i, shiftRight, shiftUp));
+        addSafeTempX0(2, ivec3(i-1, shiftLeft+1, shiftDown-1), ivec3(i, shiftLeft, shiftDown));
+        addSafeTempX0(3, ivec3(i-1, shiftLeft+1, shiftUp+1), ivec3(i, shiftLeft, shiftUp));
+
+        addSafeTempX1(0, ivec3(binC-i, shiftRight-1, shiftDown-1), ivec3(binC-1-i, shiftRight, shiftDown));
+        addSafeTempX1(1, ivec3(binC-i, shiftRight-1, shiftUp+1), ivec3(binC-1-i, shiftRight, shiftUp));
+        addSafeTempX1(2, ivec3(binC-i, shiftLeft+1, shiftDown-1), ivec3(binC-1-i, shiftLeft, shiftDown));
+        addSafeTempX1(3, ivec3(binC-i, shiftLeft+1, shiftUp+1), ivec3(binC-1-i, shiftLeft, shiftUp));
+
+        // Y0, Y1
+        addSafeTempY0(0, ivec3(shiftRight-1, i-1, shiftDown-1), ivec3(shiftRight,i,  shiftDown));
+        addSafeTempY0(1, ivec3(shiftRight-1, i-1, shiftUp+1), ivec3(shiftRight,i,  shiftUp));
+        addSafeTempY0(2, ivec3(shiftLeft+1, i-1, shiftDown-1), ivec3(shiftLeft, i, shiftDown));
+        addSafeTempY0(3, ivec3(shiftLeft+1, i-1, shiftUp+1), ivec3(shiftLeft, i, shiftUp));
+
+        addSafeTempY1(0, ivec3(shiftRight-1, binC-i, shiftDown-1), ivec3(shiftRight, binC-1-i, shiftDown));
+        addSafeTempY1(1, ivec3(shiftRight-1, binC-i, shiftUp+1), ivec3(shiftRight, binC-1-i, shiftUp));
+        addSafeTempY1(2, ivec3(shiftLeft+1, binC-i, shiftDown-1), ivec3(shiftLeft, binC-1-i, shiftDown));
+        addSafeTempY1(3, ivec3(shiftLeft+1, binC-i, shiftUp+1), ivec3(shiftLeft, binC-1-i, shiftUp));
+
+        // Z0, Z1
+        addSafeTempZ0(0, ivec3(shiftRight-1, shiftDown-1, i-1), ivec3(shiftRight, shiftDown, i));
+        addSafeTempZ0(1, ivec3(shiftRight-1, shiftUp+1, i-1), ivec3(shiftRight, shiftUp, i));
+        addSafeTempZ0(2, ivec3(shiftLeft+1, shiftDown-1, i-1), ivec3(shiftLeft, shiftDown, i));
+        addSafeTempZ0(3, ivec3(shiftLeft+1, shiftUp+1, i-1), ivec3(shiftLeft, shiftUp, i));
+
+        addSafeTempZ1(0, ivec3(shiftRight-1, shiftDown-1, binC-i), ivec3(shiftRight, shiftDown, binC-1-i));
+        addSafeTempZ1(1, ivec3(shiftRight-1, shiftUp+1, binC-i), ivec3(shiftRight, shiftUp, binC-1-i));
+        addSafeTempZ1(2, ivec3(shiftLeft+1, shiftDown-1, binC-i), ivec3(shiftLeft, shiftDown, binC-1-i));
+        addSafeTempZ1(3, ivec3(shiftLeft+1, shiftUp+1, binC-i), ivec3(shiftLeft, shiftUp, binC-1-i));
+    }
+}

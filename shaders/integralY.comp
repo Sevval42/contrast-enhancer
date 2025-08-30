@@ -31,13 +31,13 @@ layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
 layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
 layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 
-uint getIndex(ivec3 x) {
-    uint bins = constants.binCount;
+int getIndex(ivec3 x) {
+    int bins = int(constants.binCount);
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
-uint getIndexTemp(uint n, ivec3 x) {
-    uint bins = constants.binCount;
+int getIndexTemp(int n, ivec3 x) {
+    int bins = int(constants.binCount);
     if(any(lessThan(x, ivec3(0)))) return -1;
     if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return getIndex(x) + n * bins * bins * bins;
@@ -45,9 +45,9 @@ uint getIndexTemp(uint n, ivec3 x) {
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main() {
-    uint binC = constants.binCount;
+    int binC = int(constants.binCount);
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
-    if(any(greaterThanEqual(row, uvec2(uint(binC))))) return;
+    if(any(greaterThanEqual(row, ivec2(binC)))) return;
 
     float sum00 = int000.values[getIndex(ivec3(row.x, 0, row.y))];
     float sum01 = int010.values[getIndex(ivec3(row.x, binC-1, row.y))];
@@ -55,21 +55,45 @@ void main() {
     float sum11 = int110.values[getIndex(ivec3(row.x, binC-1, row.y))];
 
     // left and right triangular accumulation for rotated integrals
-    uint iX0 = getIndex(ivec3(row.x, 0, row.y));
-    uint iX1 = getIndex(ivec3(row.x, binC-1, row.y));
-    uint iY0 = getIndex(ivec3(row.x, 0, row.y));
-    uint iY1 = getIndex(ivec3(row.x, binC-1, row.y));
-    uint iZ0 = getIndex(ivec3(row, 0));
-    uint iZ1 = getIndex(ivec3(row, binC-1));
+    ivec3 iX0 = ivec3(0, row);
+    ivec3 iX1 = ivec3(binC-1, row);
+    ivec3 iY0 = ivec3(row.x, 0, row.y);
+    ivec3 iY1 = ivec3(row.x, binC-1, row.y);
+    ivec3 iZ0 = ivec3(row, 0);
+    ivec3 iZ1 = ivec3(row, binC-1);
 
-    tempX0.values[iX0] = intX0.values[iX0];
-    tempX1.values[iX1] = intX1.values[iX1];
-    tempY0.values[iY0] = intY0.values[iY0];
-    tempY1.values[iY1] = intY1.values[iY1];
-    tempZ0.values[iZ0] = intZ0.values[iZ0];
-    tempZ1.values[iZ1] = intZ1.values[iZ1];
+    tempX0.values[getIndexTemp(0, iX0)] = intX0.values[getIndex(iX0)];
+    tempX0.values[getIndexTemp(1, iX0)] = intX0.values[getIndex(iX0)];
+    tempX0.values[getIndexTemp(2, iX0)] = intX0.values[getIndex(iX0)];
+    tempX0.values[getIndexTemp(3, iX0)] = intX0.values[getIndex(iX0)];
 
-    for(uint i = 1; i < binC; ++i) {
+    tempX1.values[getIndexTemp(0, iX1)] = intX1.values[getIndex(iX1)];
+    tempX1.values[getIndexTemp(1, iX1)] = intX1.values[getIndex(iX1)];
+    tempX1.values[getIndexTemp(2, iX1)] = intX1.values[getIndex(iX1)];
+    tempX1.values[getIndexTemp(3, iX1)] = intX1.values[getIndex(iX1)];
+
+    tempY0.values[getIndexTemp(0, iY0)] = intY0.values[getIndex(iY0)];
+    tempY0.values[getIndexTemp(1, iY0)] = intY0.values[getIndex(iY0)];
+    tempY0.values[getIndexTemp(2, iY0)] = intY0.values[getIndex(iY0)];
+    tempY0.values[getIndexTemp(3, iY0)] = intY0.values[getIndex(iY0)];
+
+    tempY1.values[getIndexTemp(0, iY1)] = intY1.values[getIndex(iY1)];
+    tempY1.values[getIndexTemp(1, iY1)] = intY1.values[getIndex(iY1)];
+    tempY1.values[getIndexTemp(2, iY1)] = intY1.values[getIndex(iY1)];
+    tempY1.values[getIndexTemp(3, iY1)] = intY1.values[getIndex(iY1)];
+
+    tempZ0.values[getIndexTemp(0, iZ0)] = intZ0.values[getIndex(iZ0)];
+    tempZ0.values[getIndexTemp(1, iZ0)] = intZ0.values[getIndex(iZ0)];
+    tempZ0.values[getIndexTemp(2, iZ0)] = intZ0.values[getIndex(iZ0)];
+    tempZ0.values[getIndexTemp(3, iZ0)] = intZ0.values[getIndex(iZ0)];
+
+    tempZ1.values[getIndexTemp(0, iZ1)] = intZ1.values[getIndex(iZ1)];
+    tempZ1.values[getIndexTemp(1, iZ1)] = intZ1.values[getIndex(iZ1)];
+    tempZ1.values[getIndexTemp(2, iZ1)] = intZ1.values[getIndex(iZ1)];
+    tempZ1.values[getIndexTemp(3, iZ1)] = intZ1.values[getIndex(iZ1)];
+
+
+    for(int i = 1; i < binC; ++i) {
         uint index0 = getIndex(ivec3(row.x, i, row.y));
         uint index1 = getIndex(ivec3(row.x, binC-1-i, row.y));
         sum00 += int000.values[index0];
@@ -86,15 +110,15 @@ void main() {
         int110.values[index1] = sum11;
         int111.values[index1] = sum11;
 
-        uint xShiftRight = (row.x+i)%binC;
-        uint xShiftLeft = (row.x-i)%binC;
+        int xShiftRight = (row.x+i)%binC;
+        int xShiftLeft = (row.x-i+binC)%binC;
 
         // X0 and X1
-        uint lowerIndex = getIndexTemp(0, ivec3(i-1, xShiftRight - 1, row.y));
+        int lowerIndex = getIndexTemp(0, ivec3(i-1, xShiftRight - 1, row.y));
         float sumLeft = (lowerIndex == -1 ? 0 : tempX0.values[lowerIndex])
             + intX0.values[getIndex(ivec3(i, xShiftRight, row.y))];
 
-        lowerIndex = getIndexTemp(1, ivec3(i-1, xShiftLeft + 1, row.y));
+        lowerIndex = getIndexTemp(2, ivec3(i-1, xShiftLeft + 1, row.y));
         float sumRight = (lowerIndex == -1 ? 0 : tempX0.values[lowerIndex])
             + intX0.values[getIndex(ivec3(i, xShiftLeft, row.y))];
 
@@ -108,7 +132,7 @@ void main() {
         sumLeft = (lowerIndex == -1 ? 0 : tempX1.values[lowerIndex])
             + intX1.values[getIndex(ivec3(binC-1-i, xShiftRight, row.y))];
 
-        lowerIndex = getIndexTemp(1, ivec3(binC-i, xShiftLeft + 1, row.y));
+        lowerIndex = getIndexTemp(2, ivec3(binC-i, xShiftLeft + 1, row.y));
         sumRight = (lowerIndex == -1 ? 0 : tempX1.values[lowerIndex])
             + intX1.values[getIndex(ivec3(binC-1-i, xShiftLeft, row.y))];
         
@@ -123,7 +147,7 @@ void main() {
         sumLeft = (lowerIndex == -1 ? 0 : tempY0.values[lowerIndex])
             + intY0.values[getIndex(ivec3(xShiftRight, i,row.y))];
 
-        lowerIndex = getIndexTemp(1, ivec3(xShiftLeft + 1, i-1, row.y));
+        lowerIndex = getIndexTemp(2, ivec3(xShiftLeft + 1, i-1, row.y));
         sumRight = (lowerIndex == -1 ? 0 : tempY0.values[lowerIndex])
             + intY0.values[getIndex(ivec3(xShiftLeft, i,row.y))];
         
@@ -137,7 +161,7 @@ void main() {
         sumLeft = (lowerIndex == -1 ? 0 : tempY1.values[lowerIndex])
             + intY1.values[getIndex(ivec3(xShiftRight, binC-1-i, row.y))];
 
-        lowerIndex = getIndexTemp(1, ivec3(xShiftLeft + 1, binC-i, row.y));
+        lowerIndex = getIndexTemp(2, ivec3(xShiftLeft + 1, binC-i, row.y));
         sumRight = (lowerIndex == -1 ? 0 : tempY1.values[lowerIndex])
             + intY1.values[getIndex(ivec3(xShiftLeft, binC-1-i, row.y))];
 
@@ -152,7 +176,7 @@ void main() {
         sumLeft = (lowerIndex == -1 ? 0 : tempZ0.values[lowerIndex])
             + intZ0.values[getIndex(ivec3(xShiftRight, row.y, i))];
 
-        lowerIndex = getIndexTemp(1, ivec3(xShiftLeft + 1, row.y, i-1));
+        lowerIndex = getIndexTemp(2, ivec3(xShiftLeft + 1, row.y, i-1));
         sumRight = (lowerIndex == -1 ? 0 : tempZ0.values[lowerIndex])
             + intZ0.values[getIndex(ivec3(xShiftLeft, row.y, i))];
         
@@ -166,7 +190,7 @@ void main() {
         sumLeft = (lowerIndex == -1 ? 0 : tempZ1.values[lowerIndex])
             + intZ1.values[getIndex(ivec3(xShiftRight, row.y, binC-1-i))];
 
-        lowerIndex = getIndexTemp(1, ivec3(xShiftLeft + 1, row.y, binC-i));
+        lowerIndex = getIndexTemp(2, ivec3(xShiftLeft + 1, row.y, binC-i));
         sumRight = (lowerIndex == -1 ? 0 : tempZ1.values[lowerIndex])
             + intZ1.values[getIndex(ivec3(xShiftLeft, row.y, binC-1-i))];
         

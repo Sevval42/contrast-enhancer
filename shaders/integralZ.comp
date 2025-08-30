@@ -29,13 +29,13 @@ layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
 layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
 layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 
-uint getIndex(ivec3 x) {
-    uint bins = constants.binCount;
+int getIndex(ivec3 x) {
+    int bins = int(constants.binCount);
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
-uint getIndexTemp(uint n, ivec3 x) {
-    uint bins = constants.binCount;
+int getIndexTemp(int n, ivec3 x) {
+    int bins = int(constants.binCount);
     if(any(lessThan(x, ivec3(0)))) return -1;
     if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return getIndex(x) + n * bins * bins * bins;
@@ -43,9 +43,9 @@ uint getIndexTemp(uint n, ivec3 x) {
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main() {
-    uint binC = constants.binCount;
+    int binC = int(constants.binCount);
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
-    if(any(greaterThanEqual(row, uvec2(uint(binC))))) return;
+    if(any(greaterThanEqual(row, ivec2(binC)))) return;
 
     uint oldIndex0 = getIndex(ivec3(row.xy, 0));
     uint oldIndex1 = getIndex(ivec3(row.xy, binC-1));
@@ -64,7 +64,7 @@ void main() {
     float sumZ1Up = intZ1.values[getIndex(ivec3(row, binC-1))];
 
 
-    for(uint i = 1; i < binC; ++i) {
+    for(int i = 1; i < binC; ++i) {
         uint index0 = getIndex(ivec3(row.xy, i));
         uint index1 = getIndex(ivec3(row.xy, binC-1-i));
 
@@ -81,8 +81,8 @@ void main() {
         oldIndex1 = index1;
 
         // Up and down accumulation for rotated integrals
-        uint shiftUp = (row.y-i)%binC;
-        uint shiftDown = (row.y+i)%binC;
+        int shiftUp = (row.y-i+binC)%binC;
+        int shiftDown = (row.y+i)%binC;
 
         // update tempInts with sums
         // X0, X1
@@ -169,7 +169,5 @@ void main() {
         sumZ0Up += intZ0.values[getIndex(ivec3(row.x, shiftDown, i))];
         sumZ1Down += intZ1.values[getIndex(ivec3(row.x, shiftUp, binC-1-i))];
         sumZ1Up += intZ1.values[getIndex(ivec3(row.x, shiftDown, binC-1-i))];
-        
-
     }
 }
