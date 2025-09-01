@@ -1,6 +1,7 @@
 #include <iostream>
 #include "debug.h"
 #include "vulkan_base/vulkan_base.h"
+#include "setup.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
 #include <sstream>
@@ -46,54 +47,6 @@ void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_
     if(!stbi_write_png(fileName, binCount, binCount, 1, histogram2DBytes.data(), binCount)) {
         LOG_ERROR("Failed saving histogram");
     }
-}
-
-void saveHistogramAsCsv(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName){
-    std::ofstream file(fileName);
-    if (!file.is_open()) {
-        std::cerr << "Error opening file: " << fileName << std::endl;
-        return;
-    }
-    file << "R,G,B,Count\n";
-    
-    uint32_t count = pow(binCount, 3);
-    std::vector<float> data(count);
-    getDataFromBufferWithStagingBuffer(context, histogram, data.data(), sizeof(float) * count);
-
-    for(int z = 0; z < binCount; ++z){
-        for(int y = 0; y < binCount; ++y){
-            for(int x = 0; x < binCount; ++x){
-                int i = x + y * binCount + z * binCount *binCount;
-                file << x << "," << y << "," << z << "," << data[i] << "\n";
-            }
-        }
-    }
-
-    file.close();
-}
-
-void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, uint32_t binCount, const char* fileName, int direction) {
-    std::ofstream file(fileName);
-    if (!file.is_open()) {
-        std::cerr << "Error opening file: " << fileName << std::endl;
-        return;
-    }
-    file << "R,G,B,Count\n";
-    
-    uint32_t count = pow(binCount, 3);
-    std::vector<float> data(count * 4);
-    getDataFromBufferWithStagingBuffer(context, integral, data.data(), sizeof(float) * count * 4);
-
-    for(int z = 0; z < binCount; ++z){
-        for(int y = 0; y < binCount; ++y){
-            for(int x = 0; x < binCount; ++x){
-                int i = x + y * binCount + z * binCount * binCount + direction * binCount * binCount * binCount;
-                file << x << "," << y << "," << z << "," << data[i] << "\n";
-            }
-        }
-    }
-
-    file.close();
 }
 
 inline std::string intToString(int value) {
@@ -240,4 +193,89 @@ void printProgress(double percentage, int width, std::string bar, float avgTime)
     int rpad = width - lpad;
     printf("\r [%.*s%*s] %3d%% (%.1f ms)", lpad, bar.c_str(), rpad, "", val, avgTime);
     fflush(stdout);
+}
+
+
+
+void saveHistogramAsCsv(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName){
+    std::ofstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+        return;
+    }
+    file << "R,G,B,Count\n";
+    
+    uint32_t count = pow(binCount, 3);
+    std::vector<float> data(count);
+    getDataFromBufferWithStagingBuffer(context, histogram, data.data(), sizeof(float) * count);
+
+    for(int z = 0; z < binCount; ++z){
+        for(int y = 0; y < binCount; ++y){
+            for(int x = 0; x < binCount; ++x){
+                int i = x + y * binCount + z * binCount *binCount;
+                file << x << "," << y << "," << z << "," << data[i] << "\n";
+            }
+        }
+    }
+
+    file.close();
+}
+
+void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, uint32_t binCount, const char* fileName, int direction) {
+    std::ofstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+        return;
+    }
+    file << "R,G,B,Count\n";
+    
+    uint32_t count = pow(binCount, 3);
+    std::vector<float> data(count * 4);
+    getDataFromBufferWithStagingBuffer(context, integral, data.data(), sizeof(float) * count * 4);
+
+    for(int z = 0; z < binCount; ++z){
+        for(int y = 0; y < binCount; ++y){
+            for(int x = 0; x < binCount; ++x){
+                int i = x + y * binCount + z * binCount * binCount + direction * binCount * binCount * binCount;
+                file << x << "," << y << "," << z << "," << data[i] << "\n";
+            }
+        }
+    }
+
+    file.close();
+}
+
+void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount, const char* fileName, int vectorCount) {
+    std::ofstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+        return;
+    }
+    file << "x,y,z,u,v,w\n";
+
+    uint32_t count = pow(binCount+1, 3);
+    std::vector<float> transf(count * 4);
+    getDataFromBufferWithStagingBuffer(context, transformation, transf.data(), sizeof(float) * count * 4);
+
+    std::vector<float> base_transf(count * 4);
+    getDataFromBufferWithStagingBuffer(context, baseTransformation, base_transf.data(), sizeof(float) * count * 4);
+
+    int n = binCount + 1;
+    int step = (int)(binCount / vectorCount);
+    for(int z = 0; z <= binCount; z += step){
+        for(int y = 0; y <= binCount; y += step){
+            for(int x = 0; x <= binCount; x += step){
+                int index = (x + y * n + z * n * n) * 4;
+                float dx = transf[index] - base_transf[index];
+                float dy = transf[index+1] - base_transf[index+1];
+                float dz = transf[index+2] - base_transf[index+2];
+                float factor = 1;
+                dx *= factor;
+                dy *= factor;
+                dz *= factor;
+                file << x << "," << y << "," << z << "," << dx << "," << dy << "," << dz << "\n";
+            }
+        }
+    }
+    file.close();
 }

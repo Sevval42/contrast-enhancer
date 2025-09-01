@@ -12,5 +12,6 @@ void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, ui
 void saveImageAsPng(VulkanContext* context, VulkanImage* image, uint32_t imageSize);
 
 void saveTransformationAsPng(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount);
+void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount, const char* fileName, int vectorCount);
 
 void printProgress(double percentage, int width, std::string bar, float avgTime);

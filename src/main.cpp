@@ -306,9 +306,11 @@ int main(int argc, char* argv[]) {
     saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
     for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
         std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
-        saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
+        //saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
     }
     //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
+
+    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", 5);
     #endif
    
     shutdownApplication();
