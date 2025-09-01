@@ -33,7 +33,7 @@ uint getIndex(ivec3 x) {
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 void main() {
     uint binC = constants.binCount;
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
@@ -80,8 +80,8 @@ void main() {
         int111.values[index1] = sum1;
 
         // Columns for rotated integrals
-        uint iX0 = index0;
-        uint iX1 = index1;
+        uint iX0 = getIndex(ivec3(i, row));
+        uint iX1 = getIndex(ivec3(binC-1-i, row));
         uint iY0 = getIndex(ivec3(row.x, i, row.y));
         uint iY1 = getIndex(ivec3(row.x, binC-1-i, row.y));
         uint iZ0 = getIndex(ivec3(row, i));

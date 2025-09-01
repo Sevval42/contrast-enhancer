@@ -22,10 +22,11 @@
 #include "stb_image_write.h"
 
 // Constants for debugging purposes
-#define RANDIMG false
+#define RANDIMG true
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
+#define SAVECSV false
 #define INVERT false
 
 // Program constants
@@ -47,7 +48,7 @@ void loadConstantsFromYaml(UniformData* constants) {
     YAML::Node config = YAML::LoadFile("../config.yaml");
     constants->binCount = config["histogramBinCount"].as<int>();
     constants->kernelRadius = config["kernelRadius"].as<int>();
-    constants->baseDensity = 0; // will be set by the program automatically
+    constants->baseDensity = 0; // will be automatically set by the program
     ITERATIONS = config["iterations"].as<int>();
     sigma = config["gaussSigma"].as<float>();
 }
@@ -136,7 +137,7 @@ void initApplication(std::string imageFile) {
 
     LOG("Creating pipelines");
     int groupsKernel = constants.binCount / 8+1;
-    int groupsInt = constants.binCount / 16 + 1;
+    int groupsInt = constants.binCount / 32 + 1;
     int transformationKernel = (constants.binCount+1) / 8 + 1;
 
 
@@ -224,7 +225,7 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         #if VIDEO
         std::ostringstream oss;
         oss << "histograms/histogram" << std::setw(5) << std::setfill('0') << i+1 << ".png";
-        saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str());
+        saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str(), 'x');
         #endif
     }
     std::cout << std::endl;
@@ -256,6 +257,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    
+    std::cout << std::endl <<  "Running " << ITERATIONS << " iterations" << std::endl;
+
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 
     // one iteration for base density transformation
@@ -276,17 +280,21 @@ int main(int argc, char* argv[]) {
     
     vkFreeCommandBuffers(context->device, context->commandPool, 1, &commandBuffer);
 
+    std::cout << std::endl;
+
     LOG("Computing finished");
 
     LOG("Save image as png");
     saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
 
     LOG("Save histogram as png");
-    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogram.png").c_str());
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramx.png").c_str(), 'x');
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramy.png").c_str(), 'y');
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramz.png").c_str(), 'z');
 
     #if INTEGRALS
     LOG("Save integrals as pngs");
-    saveIntegralsAsPngs(context, mainBuffers.integralImages, constants.binCount);
+    saveIntegralsAsPngs(context, baseBuffers.integralImages, constants.binCount);
     #endif
     
     #if TRANSFORMATION
@@ -294,6 +302,14 @@ int main(int argc, char* argv[]) {
     saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount+1);
     #endif
 
+    #if SAVECSV
+    saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
+    for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
+        std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
+        saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
+    }
+    //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
+    #endif
    
     shutdownApplication();
     return 1;

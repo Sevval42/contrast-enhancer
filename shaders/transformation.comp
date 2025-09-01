@@ -1,5 +1,8 @@
 #version 450
 
+#define USE_NORMAL_INT true
+#define USE_ROTATED_INT true
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
@@ -170,66 +173,83 @@ void main() {
     int index111 = getIndex(ivec3(i, j, k));
     float weight111 = index111 == -1 ? 0 :  int111.values[index111];
 
-    int id00 = getIndexTemp(0, ivec3(i-1, j-1, k-1));
-    int id01 = getIndexTemp(1, ivec3(i-1, j, k-1));
-    int id02 = getIndexTemp(2, ivec3(i, j-1, k-1));
-    int id03 = getIndexTemp(3, ivec3(i, j, k-1));
+    ivec3 id000 = ivec3(i-1, j-1, k-1);
+    ivec3 id001 = ivec3(i-1, j-1, k);
+    ivec3 id010 = ivec3(i-1, j, k-1);
+    ivec3 id011 = ivec3(i-1, j, k);
 
-    int id10 = getIndexTemp(0, ivec3(i-1, j-1, k));
-    int id11 = getIndexTemp(1, ivec3(i-1, j, k));
-    int id12 = getIndexTemp(2, ivec3(i, j-1, k));
-    int id13 = getIndexTemp(3, ivec3(i, j, k));
+    ivec3  id100 = ivec3(i, j-1, k-1);
+    ivec3  id101 = ivec3(i, j-1, k);
+    ivec3  id110 = ivec3(i, j, k-1);
+    ivec3  id111 = ivec3(i, j, k);
+
+    /*ivec3 id000 = ivec3(i-2, j-2, k-2);
+    ivec3 id001 = ivec3(i-2, j-2, k+1);
+    ivec3 id010 = ivec3(i-2, j+1, k-2);
+    ivec3 id011 = ivec3(i-2, j+1, k+1);
+
+    ivec3 id100 = ivec3(i+1, j-2, k-2);
+    ivec3 id101 = ivec3(i+1, j-2, k+1);
+    ivec3 id110 = ivec3(i+1, j+1, k-2);
+    ivec3 id111 = ivec3(i+1, j+1, k+1);*/
     
     float weightX0
-        = (id00 == -1 ? 0 : tempX0.values[id00])
-        + (id01 == -1 ? 0 : tempX0.values[id01])
-        + (id02 == -1 ? 0 : tempX0.values[id02])
-        + (id03 == -1 ? 0 : tempX0.values[id03]);
+        = (getIndexTemp(0, id000) == -1 ? 0 : tempX0.values[getIndexTemp(0, id000)])
+        + (getIndexTemp(1, id001) == -1 ? 0 : tempX0.values[getIndexTemp(1, id001)])
+        + (getIndexTemp(2, id010) == -1 ? 0 : tempX0.values[getIndexTemp(2, id010)])
+        + (getIndexTemp(3, id011) == -1 ? 0 : tempX0.values[getIndexTemp(3, id011)]);
     
     float weightX1
-        = (id10 == -1 ? 0 : tempX1.values[id10])
-        + (id11 == -1 ? 0 : tempX1.values[id11])
-        + (id12 == -1 ? 0 : tempX1.values[id12])
-        + (id13 == -1 ? 0 : tempX1.values[id13]);
+        = (getIndexTemp(0, id100) == -1 ? 0 : tempX1.values[getIndexTemp(0, id100)])
+        + (getIndexTemp(1, id101) == -1 ? 0 : tempX1.values[getIndexTemp(1, id101)])
+        + (getIndexTemp(2, id110) == -1 ? 0 : tempX1.values[getIndexTemp(2, id110)])
+        + (getIndexTemp(3, id111) == -1 ? 0 : tempX1.values[getIndexTemp(3, id111)]);
     
     float weightY0
-        = (id00 == -1 ? 0 : tempY0.values[id00])
-        + (id01 == -1 ? 0 : tempY0.values[id01])
-        + (id02 == -1 ? 0 : tempY0.values[id02])
-        + (id03 == -1 ? 0 : tempY0.values[id03]);
+        = (getIndexTemp(0, id000) == -1 ? 0 : tempY0.values[getIndexTemp(0, id000)])
+        + (getIndexTemp(1, id001) == -1 ? 0 : tempY0.values[getIndexTemp(1, id001)])
+        + (getIndexTemp(2, id100) == -1 ? 0 : tempY0.values[getIndexTemp(2, id100)])
+        + (getIndexTemp(3, id101) == -1 ? 0 : tempY0.values[getIndexTemp(3, id101)]);
     
     float weightY1
-        = (id10 == -1 ? 0 : tempY1.values[id10])
-        + (id11 == -1 ? 0 : tempY1.values[id11])
-        + (id12 == -1 ? 0 : tempY1.values[id12])
-        + (id13 == -1 ? 0 : tempY1.values[id13]);
+        = (getIndexTemp(0, id010) == -1 ? 0 : tempY1.values[getIndexTemp(0, id010)])
+        + (getIndexTemp(1, id011) == -1 ? 0 : tempY1.values[getIndexTemp(1, id011)])
+        + (getIndexTemp(2, id110) == -1 ? 0 : tempY1.values[getIndexTemp(2, id110)])
+        + (getIndexTemp(3, id111) == -1 ? 0 : tempY1.values[getIndexTemp(3, id111)]);
     
     float weightZ0
-        = (id00 == -1 ? 0 : tempZ0.values[id00])
-        + (id01 == -1 ? 0 : tempZ0.values[id01])
-        + (id02 == -1 ? 0 : tempZ0.values[id02])
-        + (id03 == -1 ? 0 : tempZ0.values[id03]);
+        = (getIndexTemp(0, id000) == -1 ? 0 : tempZ0.values[getIndexTemp(0, id000)])
+        + (getIndexTemp(1, id010) == -1 ? 0 : tempZ0.values[getIndexTemp(1, id010)])
+        + (getIndexTemp(2, id100) == -1 ? 0 : tempZ0.values[getIndexTemp(2, id100)])
+        + (getIndexTemp(3, id110) == -1 ? 0 : tempZ0.values[getIndexTemp(3, id110)]);
     
     float weightZ1
-        = (id10 == -1 ? 0 : tempZ1.values[id10])
-        + (id11 == -1 ? 0 : tempZ1.values[id11])
-        + (id12 == -1 ? 0 : tempZ1.values[id12])
-        + (id13 == -1 ? 0 : tempZ1.values[id13]);
+        = (getIndexTemp(0, id001) == -1 ? 0 : tempZ1.values[getIndexTemp(0, id001)])
+        + (getIndexTemp(1, id011) == -1 ? 0 : tempZ1.values[getIndexTemp(1, id011)])
+        + (getIndexTemp(2, id101) == -1 ? 0 : tempZ1.values[getIndexTemp(2, id101)])
+        + (getIndexTemp(3, id111) == -1 ? 0 : tempZ1.values[getIndexTemp(3, id111)]);
     
+    float sumWeights = 0;
+    if(USE_NORMAL_INT)
+        sumWeights += weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111;
+    
+    if(USE_ROTATED_INT)
+        sumWeights += weightX0 + weightX1 + weightY0 + weightY1 + weightZ0 + weightZ1;
 
-    float sumWeights = weight000 + weight001 + weight010 + weight011 + weight100 + weight101 + weight110 + weight111
-                     + weightX0 + weightX1 + weightY0 + weightY1 + weightZ0 + weightZ1;
-
-    vec3 map 
-        = q111 * weight000
+    vec3 map = vec3(0);
+        
+    if(USE_NORMAL_INT)
+        map += q111 * weight000
         + q110 * weight001
         + q101 * weight010
         + q100 * weight011
         + q011 * weight100
         + q010 * weight101
         + q001 * weight110
-        + q000 * weight111
-        + vec3(1, y, z) * weightX0
+        + q000 * weight111;
+    
+    if(USE_ROTATED_INT)
+        map += vec3(1, y, z) * weightX0
         + vec3(0, y, z) * weightX1
         + vec3(x, 1, z) * weightY0
         + vec3(x, 0, z) * weightY1

@@ -41,7 +41,7 @@ int getIndexTemp(int n, ivec3 x) {
     return getIndex(x) + n * bins * bins * bins;
 }
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 void main() {
     int binC = int(constants.binCount);
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
@@ -90,22 +90,30 @@ void main() {
         if(lowerIndex != -1) {
             tempX0.values[getIndexTemp(0, ivec3(i, row.x, shiftDown))] += sumX0Up;
             tempX0.values[getIndexTemp(2, ivec3(i, row.x, shiftDown))] += sumX0Up;
+        } else {
+            sumX0Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(i-1, row.x, shiftUp+1));
         if(lowerIndex != -1) {
             tempX0.values[getIndexTemp(1, ivec3(i, row.x, shiftUp))] += sumX0Down;
             tempX0.values[getIndexTemp(3, ivec3(i, row.x, shiftUp))] += sumX0Down;
+        } else {
+            sumX0Down = 0;
         }
 
         lowerIndex = getIndexTemp(0, ivec3(binC-i, row.x, shiftDown-1));
         if(lowerIndex != -1) {
             tempX1.values[getIndexTemp(0, ivec3(binC-1-i, row.x, shiftDown))] += sumX1Up;
             tempX1.values[getIndexTemp(2, ivec3(binC-1-i, row.x, shiftDown))] += sumX1Up;
+        } else {
+            sumX1Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(binC-i, row.x, shiftUp+1));
         if(lowerIndex != -1) {
             tempX1.values[getIndexTemp(1, ivec3(binC-1-i, row.x, shiftUp))] += sumX1Down;
             tempX1.values[getIndexTemp(3, ivec3(binC-1-i, row.x, shiftUp))] += sumX1Down;
+        } else {
+            sumX1Down = 0;
         }
 
         // Y0, Y1
@@ -113,22 +121,30 @@ void main() {
         if(lowerIndex != -1) {
             tempY0.values[getIndexTemp(0, ivec3(row.x, i, shiftDown))] += sumY0Up;
             tempY0.values[getIndexTemp(2, ivec3(row.x, i, shiftDown))] += sumY0Up;
+        } else {
+            sumY0Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(row.x, i-1, shiftUp+1));
         if(lowerIndex != -1) {
             tempY0.values[getIndexTemp(1, ivec3(row.x, i, shiftUp))] += sumY0Down;
             tempY0.values[getIndexTemp(3, ivec3(row.x, i, shiftUp))] += sumY0Down;
+        } else {
+            sumY0Down = 0;
         }
 
         lowerIndex = getIndexTemp(0, ivec3(row.x, binC-i, shiftDown-1));
         if(lowerIndex != -1) {
             tempY1.values[getIndexTemp(0, ivec3(row.x, binC-1-i, shiftDown))] += sumY1Up;
             tempY1.values[getIndexTemp(2, ivec3(row.x, binC-1-i, shiftDown))] += sumY1Up;
+        } else {
+            sumY1Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(row.x, binC-i, shiftUp+1));
         if(lowerIndex != -1) {
             tempY1.values[getIndexTemp(1, ivec3(row.x, binC-1-i, shiftUp))] += sumY1Down;
             tempY1.values[getIndexTemp(3, ivec3(row.x, binC-1-i, shiftUp))] += sumY1Down;
+        } else {
+            sumY1Down = 0;
         }
 
         // Z0, Z1
@@ -136,22 +152,30 @@ void main() {
         if(lowerIndex != -1) {
             tempZ0.values[getIndexTemp(0, ivec3(row.x, shiftDown, i))] += sumZ0Up;
             tempZ0.values[getIndexTemp(2, ivec3(row.x, shiftDown, i))] += sumZ0Up;
+        } else {
+            sumZ0Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(row.x, shiftUp+1, i-1));
         if(lowerIndex != -1) {
             tempZ0.values[getIndexTemp(1, ivec3(row.x, shiftUp, i))] += sumZ0Down;
             tempZ0.values[getIndexTemp(3, ivec3(row.x, shiftUp, i))] += sumZ0Down;
+        } else {
+            sumZ0Down = 0;
         }
 
         lowerIndex = getIndexTemp(0, ivec3(row.x, shiftDown-1, binC-i));
         if(lowerIndex != -1) {
             tempZ1.values[getIndexTemp(0, ivec3(row.x, shiftDown, binC-1-i))] += sumZ1Up;
             tempZ1.values[getIndexTemp(2, ivec3(row.x, shiftDown, binC-1-i))] += sumZ1Up;
+        } else {
+            sumZ1Up = 0;
         }
         lowerIndex = getIndexTemp(0, ivec3(row.x, shiftUp+1, binC-i));
         if(lowerIndex != -1) {
             tempZ1.values[getIndexTemp(1, ivec3(row.x, shiftUp, binC-1-i))] += sumZ1Down;
             tempZ1.values[getIndexTemp(3, ivec3(row.x, shiftUp, binC-1-i))] += sumZ1Down;
+        } else {
+            sumZ1Down = 0;
         }
 
         // update sums with intXX

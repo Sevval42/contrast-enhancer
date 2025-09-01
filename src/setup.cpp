@@ -118,7 +118,7 @@ void setupDescriptorSet(
             &tempInt, 
             NULL, 
             integralSize * 4, // 4 or 5 temp histograms for every face integral 
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
     }
