@@ -22,7 +22,8 @@
 #include "stb_image_write.h"
 
 // Constants for debugging purposes
-#define RANDIMG true
+#define RANDIMG false
+#define UNIFORMIMG true
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
@@ -104,6 +105,32 @@ void initApplication(std::string imageFile) {
     if (!stbi_write_png("../images/randomImage.png", size, size, randchannels, randImg.data(), stride_in_bytes)) {
         std::cerr << "Failed to write image!" << std::endl;
     }
+    #endif
+
+    #if UNIFORMIMG
+
+    const int uChannels = 64;
+    const int uw = 512;
+    std::vector<unsigned char> uniformImg(uw * uw * 4);
+
+    int index = 0;
+    for(int z = 0; z < uChannels; z++) {
+        for(int y = 0; y < uChannels; y++) {
+            for(int x = 0; x < uChannels; x++) {
+                uniformImg[index] = x*4;
+                uniformImg[index+1] = y*4;
+                uniformImg[index+2] = z*4;
+                uniformImg[index+3] = 255;
+
+                index+=4;
+            }
+        }
+    }
+
+    if (!stbi_write_png("../images/uniform.png", uw, uw, 4, uniformImg.data(), uw*4)) {
+        std::cerr << "Failed to write image!" << std::endl;
+    }
+
     #endif
 
 
@@ -306,11 +333,11 @@ int main(int argc, char* argv[]) {
     saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
     for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
         std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
-        //saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
+        saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
     }
     //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
-    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", 5);
+    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", 32);
     #endif
    
     shutdownApplication();

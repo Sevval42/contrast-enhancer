@@ -23,7 +23,7 @@ void main() {
         return;
     }
 
-    vec3 color = imageLoad(img, pixelCoords).xyz;;
+    vec3 color = imageLoad(img, pixelCoords).xyz;
 
     color *= float(constants.binCount);
 

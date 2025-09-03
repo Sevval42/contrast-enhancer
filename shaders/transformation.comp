@@ -1,7 +1,7 @@
 #version 450
 
 #define USE_NORMAL_INT true
-#define USE_ROTATED_INT true
+#define USE_ROTATED_INT false
 
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
@@ -183,16 +183,6 @@ void main() {
     ivec3  id110 = ivec3(i, j, k-1);
     ivec3  id111 = ivec3(i, j, k);
 
-    /*ivec3 id000 = ivec3(i-2, j-2, k-2);
-    ivec3 id001 = ivec3(i-2, j-2, k+1);
-    ivec3 id010 = ivec3(i-2, j+1, k-2);
-    ivec3 id011 = ivec3(i-2, j+1, k+1);
-
-    ivec3 id100 = ivec3(i+1, j-2, k-2);
-    ivec3 id101 = ivec3(i+1, j-2, k+1);
-    ivec3 id110 = ivec3(i+1, j+1, k-2);
-    ivec3 id111 = ivec3(i+1, j+1, k+1);*/
-    
     float weightX0
         = (getIndexTemp(0, id000) == -1 ? 0 : tempX0.values[getIndexTemp(0, id000)])
         + (getIndexTemp(1, id001) == -1 ? 0 : tempX0.values[getIndexTemp(1, id001)])
@@ -269,6 +259,7 @@ void main() {
     uint trIndex = 
         uint(i + j * (maxBin+1) + k * (maxBin+1) * (maxBin+1)); 
     transformation.values[trIndex] = vec4(map, 0);
+
     if(any(lessThan(ivec3(color), ivec3(maxBin))))
         histogram.values[getIndex(color)] = 0;
 }
