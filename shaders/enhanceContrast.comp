@@ -26,19 +26,19 @@ void main() {
 
     float maxBin = constants.binCount;
     vec4 color = imageLoad(img, pixelCoords);
-    color = max(vec4(0), min(vec4(1), color));
-    color *= maxBin;
+    //color = max(vec4(0), min(vec4(1), color));
+    vec4 c = color * maxBin;
 
-    float r0 = floor(color.x);
-    float g0 = floor(color.y);
-    float b0 = floor(color.z);
+    float r0 = floor(c.x);
+    float g0 = floor(c.y);
+    float b0 = floor(c.z);
     float r1 = min(r0 + 1, constants.binCount);
     float g1 = min(g0 + 1, constants.binCount);
     float b1 = min(b0 + 1, constants.binCount);
 
-    float rd = color.x - r0;
-    float gd = color.y - g0;
-    float bd = color.z - b0;
+    float rd = c.x - r0;
+    float gd = c.y - g0;
+    float bd = c.z - b0;
 
     vec4 t000 = transformation.values[getIndex(uvec3(r0, g0, b0))] - baseTransformation.values[getIndex(uvec3(r0, g0, b0))];
     vec4 t001 = transformation.values[getIndex(uvec3(r0, g0, b1))] - baseTransformation.values[getIndex(uvec3(r0, g0, b1))];
@@ -60,8 +60,8 @@ void main() {
         t110 * rd * gd * (1-bd) +
         t111 * rd * gd * bd;
 
-    vec3 newColor = color.xyz + transf.xyz;
+    vec3 newColor = c.xyz + transf.xyz * maxBin;
 
-    imageStore(img, pixelCoords, vec4(newColor.xyz/maxBin, color.a));
+    imageStore(img, pixelCoords, vec4(newColor.xyz/(maxBin), color.a));
     //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
 }

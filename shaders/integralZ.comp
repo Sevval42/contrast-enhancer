@@ -1,5 +1,7 @@
 #version 450
 
+#define USE_ROTATED_INT 0
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
@@ -50,6 +52,7 @@ void main() {
     uint oldIndex0 = getIndex(ivec3(row.xy, 0));
     uint oldIndex1 = getIndex(ivec3(row.xy, binC-1));
 
+#if USE_ROTATED_INT
     float sumX0Down = intX0.values[getIndex(ivec3(0, row))];
     float sumX0Up = intX0.values[getIndex(ivec3(0, row))];
     float sumX1Down = intX1.values[getIndex(ivec3(binC-1, row))];
@@ -62,7 +65,7 @@ void main() {
     float sumZ0Up = intZ0.values[getIndex(ivec3(row, 0))];
     float sumZ1Down = intZ1.values[getIndex(ivec3(row, binC-1))];
     float sumZ1Up = intZ1.values[getIndex(ivec3(row, binC-1))];
-
+#endif
 
     for(int i = 1; i < binC; ++i) {
         uint index0 = getIndex(ivec3(row.xy, i));
@@ -79,7 +82,8 @@ void main() {
 
         oldIndex0 = index0;
         oldIndex1 = index1;
-
+    
+#if USE_ROTATED_INT
         // Up and down accumulation for rotated integrals
         int shiftUp = (row.y-i+binC)%binC;
         int shiftDown = (row.y+i)%binC;
@@ -193,5 +197,6 @@ void main() {
         sumZ0Up += intZ0.values[getIndex(ivec3(row.x, shiftDown, i))];
         sumZ1Down += intZ1.values[getIndex(ivec3(row.x, shiftUp, binC-1-i))];
         sumZ1Up += intZ1.values[getIndex(ivec3(row.x, shiftDown, binC-1-i))];
+#endif
     }
 }

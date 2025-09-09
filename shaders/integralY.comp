@@ -1,5 +1,7 @@
 #version 450
 
+#define USE_ROTATED_INT 0
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
@@ -54,6 +56,7 @@ void main() {
     float sum10 = int100.values[getIndex(ivec3(row.x, 0, row.y))];
     float sum11 = int110.values[getIndex(ivec3(row.x, binC-1, row.y))];
 
+#if USE_ROTATED_INT
     // left and right triangular accumulation for rotated integrals
     ivec3 iX0 = ivec3(0, row);
     ivec3 iX1 = ivec3(binC-1, row);
@@ -91,7 +94,7 @@ void main() {
     tempZ1.values[getIndexTemp(1, iZ1)] = intZ1.values[getIndex(iZ1)];
     tempZ1.values[getIndexTemp(2, iZ1)] = intZ1.values[getIndex(iZ1)];
     tempZ1.values[getIndexTemp(3, iZ1)] = intZ1.values[getIndex(iZ1)];
-
+#endif
 
     for(int i = 1; i < binC; ++i) {
         int index0 = getIndex(ivec3(row.x, i, row.y));
@@ -109,7 +112,7 @@ void main() {
         int101.values[index0] = sum10;
         int110.values[index1] = sum11;
         int111.values[index1] = sum11;
-
+#if USE_ROTATED_INT
         int xShiftRight = (row.x+i)%binC;
         int xShiftLeft = (row.x-i+binC)%binC;
 
@@ -198,5 +201,6 @@ void main() {
         tempZ1.values[getIndexTemp(1, ivec3(xShiftRight, row.y, binC-1-i))] = sumLeft;
         tempZ1.values[getIndexTemp(2, ivec3(xShiftLeft, row.y, binC-1-i))] = sumRight;
         tempZ1.values[getIndexTemp(3, ivec3(xShiftLeft, row.y, binC-1-i))] = sumRight;
+#endif
     }
 }

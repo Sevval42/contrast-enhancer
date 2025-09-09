@@ -101,10 +101,15 @@ void saveImageAsPng(VulkanContext* context, VulkanImage* image, uint32_t imageSi
     getDataFromImageWithStagingBuffer(context, image, outputPixels.data());
 
     std::vector<uint8_t> outputBytes(image->extent.width * image->extent.height * 4);
+
+    float max = 0;
     for (size_t i = 0; i < outputPixels.size(); ++i) {
         float v = std::min(std::max(outputPixels[i], 0.0f), 1.0f);
         outputBytes[i] = static_cast<uint8_t>(v * 255.0f);
+        if(outputPixels[i] > max && i % 4 == 0) max = outputPixels[i];
     }
+
+    std::cout << "max red value: " << max << std::endl;
 
     if(
         !stbi_write_png(
@@ -117,6 +122,7 @@ void saveImageAsPng(VulkanContext* context, VulkanImage* image, uint32_t imageSi
 
 }
 
+// Method written by chat-gpt
 void saveTransformationAsPng(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount) {
     LOG("Loading transformation");
     size_t count = pow(binCount, 3);

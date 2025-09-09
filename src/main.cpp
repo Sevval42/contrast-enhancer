@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -23,7 +24,8 @@
 
 // Constants for debugging purposes
 #define RANDIMG false
-#define UNIFORMIMG true
+#define UNIFORMIMG false
+#define LINEIMG false
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
@@ -79,15 +81,17 @@ void initApplication(std::string imageFile) {
         deviceExtensions
     );
 
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
     #if RANDIMG
-    const int size = 256;
+    const int size = 512;
     const int randchannels = 4;
     const int stride_in_bytes = size * randchannels;
     int minVal = 100;
     int maxVal = 155;
 
     // Seed RNG
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
+    
 
     // Allocate pixel buffer (unsigned char for 0–255 range)
     std::vector<unsigned char> randImg(size * size * randchannels);
@@ -133,6 +137,26 @@ void initApplication(std::string imageFile) {
 
     #endif
 
+    #if LINEIMG
+
+    const int lw = 4048;
+    std::vector<unsigned char> lineImg(lw * lw * 4);
+
+    int index = 0;
+    for(int i = 0; i < lineImg.size(); i+=4) {
+        float d = ((float)i/lineImg.size()*255);
+        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+        lineImg[i] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+        lineImg[i+1] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+        lineImg[i+2] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+        lineImg[i+3] = 255;
+    }
+
+    if (!stbi_write_png("../images/lineTest.png", lw, lw, 4, lineImg.data(), lw*4)) {
+        std::cerr << "Failed to write image!" << std::endl;
+    }
+
+    #endif
 
     int w,h,channels;
     stbi_ldr_to_hdr_gamma(1.0f);
@@ -321,7 +345,7 @@ int main(int argc, char* argv[]) {
 
     #if INTEGRALS
     LOG("Save integrals as pngs");
-    saveIntegralsAsPngs(context, baseBuffers.integralImages, constants.binCount);
+    saveIntegralsAsPngs(context, mainBuffers.integralImages, constants.binCount);
     #endif
     
     #if TRANSFORMATION
@@ -337,7 +361,7 @@ int main(int argc, char* argv[]) {
     }
     //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
-    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", 32);
+    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
     #endif
    
     shutdownApplication();

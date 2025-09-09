@@ -1,3 +1,4 @@
+#written with chat-gpt
 import os
 import numpy as np
 import plotly.graph_objects as go
@@ -24,7 +25,7 @@ csv_files = [
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Parameters
-binsR = binsG = binsB = 32
+binsR = binsG = binsB = 32 # must match the binCount set in the config.yaml file!!!
 
 for csv_name in csv_files:
     csv_path = os.path.join(script_dir, csv_name)
@@ -48,7 +49,7 @@ for csv_name in csv_files:
         z=np.tile(np.arange(binsB), binsR * binsG),
         value=hist.flatten(),
         opacity=0.05,
-        surface_count=200
+        surface_count=100
     ))
 
     fig.update_layout(

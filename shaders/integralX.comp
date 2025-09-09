@@ -1,5 +1,7 @@
 #version 450
 
+#define USE_ROTATED_INT 0
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint binCount;
     uint radius;
@@ -54,7 +56,7 @@ void main() {
     int101.values[index1] = sum1;
     int110.values[index1] = sum1;
     int111.values[index1] = sum1;
-
+#if USE_ROTATED_INT
     // Columns for rotated integrals
     intX0.values[index0] = kernelHistogram.values[index0];
     intX1.values[index1] = kernelHistogram.values[index1];
@@ -62,7 +64,7 @@ void main() {
     intY1.values[getIndex(ivec3(row.x, binC-1, row.y))] = kernelHistogram.values[getIndex(ivec3(row.x, binC-1, row.y))];
     intZ0.values[getIndex(ivec3(row, 0))] = kernelHistogram.values[getIndex(ivec3(row, 0))];
     intZ1.values[getIndex(ivec3(row, binC-1))] = kernelHistogram.values[getIndex(ivec3(row, binC-1))];
-
+#endif
     for(uint i = 1; i < binC; ++i) {
         // Normal integrals
         index0 = getIndex(ivec3(i, row));
@@ -78,7 +80,7 @@ void main() {
         int101.values[index1] = sum1;
         int110.values[index1] = sum1;
         int111.values[index1] = sum1;
-
+#if USE_ROTATED_INT
         // Columns for rotated integrals
         uint iX0 = getIndex(ivec3(i, row));
         uint iX1 = getIndex(ivec3(binC-1-i, row));
@@ -93,5 +95,6 @@ void main() {
         intY1.values[iY1] = intY1.values[getIndex(ivec3(row.x, binC-i, row.y))] + kernelHistogram.values[iY1];
         intZ0.values[iZ0] = intZ0.values[getIndex(ivec3(row, i-1))] + kernelHistogram.values[iZ0];
         intZ1.values[iZ1] = intZ1.values[getIndex(ivec3(row, binC-i))] + kernelHistogram.values[iZ1];
+#endif
     }
 }
