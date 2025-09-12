@@ -285,3 +285,20 @@ void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformatio
     }
     file.close();
 }
+
+void saveDataAsCsv(VulkanContext* context, VulkanImage* image, uint32_t imageSize, const char* fileName, int skipFactor){
+    std::vector<float> outputPixels(imageSize/sizeof(float));
+    getDataFromImageWithStagingBuffer(context, image, outputPixels.data());
+
+    std::ofstream file(fileName);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << fileName << std::endl;
+        return;
+    }
+
+    file << "r,g,b\n";
+    for(int i = 0; i < outputPixels.size(); i+= 4 * skipFactor){
+        file << outputPixels[i] << "," << outputPixels[i+1] << "," << outputPixels[i+2] << "\n";
+    }
+    file.close();
+}

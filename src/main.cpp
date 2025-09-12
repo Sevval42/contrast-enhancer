@@ -32,6 +32,8 @@
 #define SAVECSV false
 #define INVERT false
 
+#define USE_ROTATED_INTEGRALS false
+
 // Program constants
 int ITERATIONS = 0;
 UniformData constants;
@@ -197,7 +199,9 @@ void initApplication(std::string imageFile) {
     baseComputeShaders.push_back("../shaders/integralX.spv");
     baseComputeShaders.push_back("../shaders/integralY.spv");
     baseComputeShaders.push_back("../shaders/integralZ.spv");
+#if USE_ROTATED_INTEGRALS
     baseComputeShaders.push_back("../shaders/integralD.spv");
+#endif
     baseComputeShaders.push_back("../shaders/transformation.spv");
 
     std::vector<ivec3> baseDispatches = {
@@ -205,7 +209,9 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
+#if USE_ROTATED_INTEGRALS
         ivec3{groupsInt, groupsInt, 1},
+#endif
         ivec3{transformationKernel, transformationKernel, transformationKernel},
     };
     basePipeline = createPipeline(context, baseComputeShaders, baseDispatches, baseDescriptorSet);
@@ -217,7 +223,9 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/integralX.spv");
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
+#if USE_ROTATED_INTEGRALS
     computeShaders.push_back("../shaders/integralD.spv");
+#endif
     computeShaders.push_back("../shaders/transformation.spv");
     computeShaders.push_back("../shaders/enhanceContrast.spv");
 
@@ -227,7 +235,9 @@ void initApplication(std::string imageFile) {
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
+#if USE_ROTATED_INTEGRALS
         ivec3{groupsInt, groupsInt, 1},
+#endif
         ivec3{transformationKernel, transformationKernel, transformationKernel},
         ivec3{(int)w/16+1, (int)h/16+1, 1},
     };
@@ -354,6 +364,7 @@ int main(int argc, char* argv[]) {
     #endif
 
     #if SAVECSV
+    LOG("Save data to csv files");
     saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
     for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
         std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
@@ -362,6 +373,7 @@ int main(int argc, char* argv[]) {
     //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
     saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
+    saveDataAsCsv(context, &mainBuffers.imageBuffer, mainBuffers.imageSize, "../plots/image.csv", 200);
     #endif
    
     shutdownApplication();

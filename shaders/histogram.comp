@@ -11,11 +11,6 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
     uint values[];
 } histogram;
 
-uint getIndex(ivec3 x) {
-    uint bins = constants.binCount;
-    return x.r + x.g * bins + x.b * bins * bins;
-}
-
 layout(local_size_x = 16, local_size_y = 16) in;
 void main() {
     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);

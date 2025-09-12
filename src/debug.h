@@ -10,6 +10,7 @@ void saveIntegralsAsPngs(VulkanContext* context, std::vector<VulkanBuffer>& inte
 void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, uint32_t binCount, const char* fileName, int direction);
 
 void saveImageAsPng(VulkanContext* context, VulkanImage* image, uint32_t imageSize);
+void saveDataAsCsv(VulkanContext* context, VulkanImage* image, uint32_t imageSize, const char* fileName, int skipFactor);
 
 void saveTransformationAsPng(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount);
 void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount, const char* fileName, int vectorCount);
