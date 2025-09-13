@@ -1,5 +1,9 @@
 #include "vulkan_base/vulkan_base.h"
 
+/*
+    Helper methods for setting up the pipeline and running the shader
+*/
+
 struct UniformData {
     uint32_t binCount;
     uint32_t kernelRadius;

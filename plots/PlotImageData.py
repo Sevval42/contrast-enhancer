@@ -9,7 +9,7 @@ data = np.loadtxt(os.path.join(script_dir, "image.csv"), delimiter=",", skiprows
 
 r, g, b = data[:,0], data[:,1], data[:,2]
 
-fig = plt.figure(figsize=(8,8))
+fig = plt.figure(figsize=(12,12))
 ax = fig.add_subplot(111, projection="3d")
 
 # Plot points in RGB color

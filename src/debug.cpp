@@ -271,15 +271,17 @@ void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformatio
     for(int z = 0; z <= binCount; z += step){
         for(int y = 0; y <= binCount; y += step){
             for(int x = 0; x <= binCount; x += step){
-                int index = (x + y * n + z * n * n) * 4;
-                float dx = transf[index] - base_transf[index];
-                float dy = transf[index+1] - base_transf[index+1];
-                float dz = transf[index+2] - base_transf[index+2];
-                float factor = 1;
-                dx *= factor;
-                dy *= factor;
-                dz *= factor;
-                file << x << "," << y << "," << z << "," << dx << "," << dy << "," << dz << "\n";
+                if(x == 16) {
+                    int index = (x + y * n + z * n * n) * 4;
+                    float dx = transf[index] - base_transf[index];
+                    float dy = transf[index+1] - base_transf[index+1];
+                    float dz = transf[index+2] - base_transf[index+2];
+                    float factor = binCount;
+                    dx *= factor;
+                    dy *= factor;
+                    dz *= factor;
+                    file << x << "," << y << "," << z << "," << dx << "," << dy << "," << dz << "\n";
+                }
             }
         }
     }

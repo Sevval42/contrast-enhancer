@@ -1,7 +1,7 @@
 #version 450
 
 layout(set = 0, binding = 0) uniform UniformBuffer {
-    uint binCount;
+    uint bins;
     uint radius;
     float d0;
 } constants;
@@ -21,12 +21,12 @@ layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
 layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 
 int getIndex(ivec3 x) {
-    int bins = int(constants.binCount);
+    int bins = int(constants.bins);
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
 int getIndexTemp(int n, ivec3 x) {
-    int bins = int(constants.binCount);
+    int bins = int(constants.bins);
     if(any(lessThan(x, ivec3(0)))) return -1;
     if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return getIndex(x) + n * bins * bins * bins;
@@ -70,16 +70,16 @@ void addSafeTempZ1(int n, ivec3 src, ivec3 dst) {
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 void main() {
-    int binC = int(constants.binCount);
+    int bins = int(constants.bins);
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
-    if(any(greaterThanEqual(row, ivec2(binC)))) return;
+    if(any(greaterThanEqual(row, ivec2(bins)))) return;
 
-    for(int i = 1; i < binC; ++i) {
+    for(int i = 1; i < bins; ++i) {
         // diagonal accumulation for rotated integrals
-        int shiftUp = (row.y-i+binC)%binC;
-        int shiftDown = (row.y+i)%binC;
-        int shiftLeft = (row.x-i+binC)%binC;
-        int shiftRight = (row.x+i)%binC;
+        int shiftUp = (row.y-i+bins)%bins;
+        int shiftDown = (row.y+i)%bins;
+        int shiftLeft = (row.x-i+bins)%bins;
+        int shiftRight = (row.x+i)%bins;
 
         // update tempInts with sums
         // X0, X1
@@ -88,10 +88,10 @@ void main() {
         addSafeTempX0(2, ivec3(i-1, shiftLeft+1, shiftDown-1), ivec3(i, shiftLeft, shiftDown));
         addSafeTempX0(3, ivec3(i-1, shiftLeft+1, shiftUp+1), ivec3(i, shiftLeft, shiftUp));
 
-        addSafeTempX1(0, ivec3(binC-i, shiftRight-1, shiftDown-1), ivec3(binC-1-i, shiftRight, shiftDown));
-        addSafeTempX1(1, ivec3(binC-i, shiftRight-1, shiftUp+1), ivec3(binC-1-i, shiftRight, shiftUp));
-        addSafeTempX1(2, ivec3(binC-i, shiftLeft+1, shiftDown-1), ivec3(binC-1-i, shiftLeft, shiftDown));
-        addSafeTempX1(3, ivec3(binC-i, shiftLeft+1, shiftUp+1), ivec3(binC-1-i, shiftLeft, shiftUp));
+        addSafeTempX1(0, ivec3(bins-i, shiftRight-1, shiftDown-1), ivec3(bins-1-i, shiftRight, shiftDown));
+        addSafeTempX1(1, ivec3(bins-i, shiftRight-1, shiftUp+1), ivec3(bins-1-i, shiftRight, shiftUp));
+        addSafeTempX1(2, ivec3(bins-i, shiftLeft+1, shiftDown-1), ivec3(bins-1-i, shiftLeft, shiftDown));
+        addSafeTempX1(3, ivec3(bins-i, shiftLeft+1, shiftUp+1), ivec3(bins-1-i, shiftLeft, shiftUp));
 
         // Y0, Y1
         addSafeTempY0(0, ivec3(shiftRight-1, i-1, shiftDown-1), ivec3(shiftRight,i,  shiftDown));
@@ -99,10 +99,10 @@ void main() {
         addSafeTempY0(2, ivec3(shiftLeft+1, i-1, shiftDown-1), ivec3(shiftLeft, i, shiftDown));
         addSafeTempY0(3, ivec3(shiftLeft+1, i-1, shiftUp+1), ivec3(shiftLeft, i, shiftUp));
 
-        addSafeTempY1(0, ivec3(shiftRight-1, binC-i, shiftDown-1), ivec3(shiftRight, binC-1-i, shiftDown));
-        addSafeTempY1(1, ivec3(shiftRight-1, binC-i, shiftUp+1), ivec3(shiftRight, binC-1-i, shiftUp));
-        addSafeTempY1(2, ivec3(shiftLeft+1, binC-i, shiftDown-1), ivec3(shiftLeft, binC-1-i, shiftDown));
-        addSafeTempY1(3, ivec3(shiftLeft+1, binC-i, shiftUp+1), ivec3(shiftLeft, binC-1-i, shiftUp));
+        addSafeTempY1(0, ivec3(shiftRight-1, bins-i, shiftDown-1), ivec3(shiftRight, bins-1-i, shiftDown));
+        addSafeTempY1(1, ivec3(shiftRight-1, bins-i, shiftUp+1), ivec3(shiftRight, bins-1-i, shiftUp));
+        addSafeTempY1(2, ivec3(shiftLeft+1, bins-i, shiftDown-1), ivec3(shiftLeft, bins-1-i, shiftDown));
+        addSafeTempY1(3, ivec3(shiftLeft+1, bins-i, shiftUp+1), ivec3(shiftLeft, bins-1-i, shiftUp));
 
         // Z0, Z1
         addSafeTempZ0(0, ivec3(shiftRight-1, shiftDown-1, i-1), ivec3(shiftRight, shiftDown, i));
@@ -110,9 +110,9 @@ void main() {
         addSafeTempZ0(2, ivec3(shiftLeft+1, shiftDown-1, i-1), ivec3(shiftLeft, shiftDown, i));
         addSafeTempZ0(3, ivec3(shiftLeft+1, shiftUp+1, i-1), ivec3(shiftLeft, shiftUp, i));
 
-        addSafeTempZ1(0, ivec3(shiftRight-1, shiftDown-1, binC-i), ivec3(shiftRight, shiftDown, binC-1-i));
-        addSafeTempZ1(1, ivec3(shiftRight-1, shiftUp+1, binC-i), ivec3(shiftRight, shiftUp, binC-1-i));
-        addSafeTempZ1(2, ivec3(shiftLeft+1, shiftDown-1, binC-i), ivec3(shiftLeft, shiftDown, binC-1-i));
-        addSafeTempZ1(3, ivec3(shiftLeft+1, shiftUp+1, binC-i), ivec3(shiftLeft, shiftUp, binC-1-i));
+        addSafeTempZ1(0, ivec3(shiftRight-1, shiftDown-1, bins-i), ivec3(shiftRight, shiftDown, bins-1-i));
+        addSafeTempZ1(1, ivec3(shiftRight-1, shiftUp+1, bins-i), ivec3(shiftRight, shiftUp, bins-1-i));
+        addSafeTempZ1(2, ivec3(shiftLeft+1, shiftDown-1, bins-i), ivec3(shiftLeft, shiftDown, bins-1-i));
+        addSafeTempZ1(3, ivec3(shiftLeft+1, shiftUp+1, bins-i), ivec3(shiftLeft, shiftUp, bins-1-i));
     }
 }

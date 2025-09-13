@@ -12,14 +12,15 @@ data = np.loadtxt(os.path.join(script_dir, "transformation.csv"), delimiter=",",
 x, y, z = data[:,0], data[:,1], data[:,2]
 u, v, w = data[:,3], data[:,4], data[:,5]
 
-fig = plt.figure(figsize=(8,8))
+fig = plt.figure(figsize=(12,12))
 ax = fig.add_subplot(111, projection="3d")
 
 # Plot all vectors (no stride, since you already subsampled in C++)
 ax.quiver(x, y, z, u, v, w,
           length=1.0,   # acts as a global scaling factor
           normalize=False, 
-          color="blue")
+          color="blue",
+          arrow_length_ratio=0.1)
 
 ax.set_xlabel("R")
 ax.set_ylabel("G")

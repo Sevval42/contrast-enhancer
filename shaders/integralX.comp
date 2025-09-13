@@ -1,18 +1,23 @@
 #version 450
 
+/*
+Calculates sums across both X-directions.
+*/
+
 #define USE_ROTATED_INT 0
 
 layout(set = 0, binding = 0) uniform UniformBuffer {
-    uint binCount;
+    uint bins;
     uint radius;
     float d0;
 } constants;
 
-layout(set = 0, binding = 3) buffer KernelBuffer {
+layout(set = 0, binding = 3) buffer SmoothHistogramBuffer {
     float values[];
-} kernelHistogram;
+} smoothHistogram;
 
 // Integrals
+//int000 corresponds to the integral, where the values are summed towards (0,0,0)
 layout(set = 0, binding =  5) buffer integralBuffer000 { float values[]; } int000;
 layout(set = 0, binding =  6) buffer integralBuffer001 { float values[]; } int001;
 layout(set = 0, binding =  7) buffer integralBuffer010 { float values[]; } int010;
@@ -31,22 +36,22 @@ layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
 layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
 
 uint getIndex(ivec3 x) {
-    uint bins = constants.binCount;
+    uint bins = constants.bins;
     return x.r + x.g * bins + x.b * bins * bins;
 }
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 void main() {
-    uint binC = constants.binCount;
+    uint bins = constants.bins;
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
-    if(any(greaterThanEqual(row, ivec2(binC)))) return;
+    if(any(greaterThanEqual(row, ivec2(bins)))) return;
 
     // Normal integrals
     uint index0 = getIndex(ivec3(0, row));
-    uint index1 = getIndex(ivec3(binC-1, row));
+    uint index1 = getIndex(ivec3(bins-1, row));
 
-    float sum0 = kernelHistogram.values[index0];
-    float sum1 = kernelHistogram.values[index1];
+    float sum0 = smoothHistogram.values[index0];
+    float sum1 = smoothHistogram.values[index1];
 
     int000.values[index0] = sum0;
     int001.values[index0] = sum0;
@@ -56,21 +61,23 @@ void main() {
     int101.values[index1] = sum1;
     int110.values[index1] = sum1;
     int111.values[index1] = sum1;
+
 #if USE_ROTATED_INT
     // Columns for rotated integrals
-    intX0.values[index0] = kernelHistogram.values[index0];
-    intX1.values[index1] = kernelHistogram.values[index1];
-    intY0.values[getIndex(ivec3(row.x, 0, row.y))] = kernelHistogram.values[getIndex(ivec3(row.x, 0, row.y))];
-    intY1.values[getIndex(ivec3(row.x, binC-1, row.y))] = kernelHistogram.values[getIndex(ivec3(row.x, binC-1, row.y))];
-    intZ0.values[getIndex(ivec3(row, 0))] = kernelHistogram.values[getIndex(ivec3(row, 0))];
-    intZ1.values[getIndex(ivec3(row, binC-1))] = kernelHistogram.values[getIndex(ivec3(row, binC-1))];
+    intX0.values[index0] = smoothHistogram.values[index0];
+    intX1.values[index1] = smoothHistogram.values[index1];
+    intY0.values[getIndex(ivec3(row.x, 0, row.y))] = smoothHistogram.values[getIndex(ivec3(row.x, 0, row.y))];
+    intY1.values[getIndex(ivec3(row.x, bins-1, row.y))] = smoothHistogram.values[getIndex(ivec3(row.x, bins-1, row.y))];
+    intZ0.values[getIndex(ivec3(row, 0))] = smoothHistogram.values[getIndex(ivec3(row, 0))];
+    intZ1.values[getIndex(ivec3(row, bins-1))] = smoothHistogram.values[getIndex(ivec3(row, bins-1))];
 #endif
-    for(uint i = 1; i < binC; ++i) {
+
+    for(uint i = 1; i < bins; ++i) {
         // Normal integrals
         index0 = getIndex(ivec3(i, row));
-        index1 = getIndex(ivec3(binC-1 - i, row));
-        sum0 += kernelHistogram.values[index0];
-        sum1 += kernelHistogram.values[index1];
+        index1 = getIndex(ivec3(bins-1 - i, row));
+        sum0 += smoothHistogram.values[index0];
+        sum1 += smoothHistogram.values[index1];
 
         int000.values[index0] = sum0;
         int001.values[index0] = sum0;
@@ -80,21 +87,23 @@ void main() {
         int101.values[index1] = sum1;
         int110.values[index1] = sum1;
         int111.values[index1] = sum1;
+
 #if USE_ROTATED_INT
         // Columns for rotated integrals
         uint iX0 = getIndex(ivec3(i, row));
-        uint iX1 = getIndex(ivec3(binC-1-i, row));
+        uint iX1 = getIndex(ivec3(bins-1-i, row));
         uint iY0 = getIndex(ivec3(row.x, i, row.y));
-        uint iY1 = getIndex(ivec3(row.x, binC-1-i, row.y));
+        uint iY1 = getIndex(ivec3(row.x, bins-1-i, row.y));
         uint iZ0 = getIndex(ivec3(row, i));
-        uint iZ1 = getIndex(ivec3(row, binC-1-i));
+        uint iZ1 = getIndex(ivec3(row, bins-1-i));
 
-        intX0.values[iX0] = intX0.values[getIndex(ivec3(i-1, row))] + kernelHistogram.values[iX0];
-        intX1.values[iX1] = intX1.values[getIndex(ivec3(binC-i, row))] + kernelHistogram.values[iX1];
-        intY0.values[iY0] = intY0.values[getIndex(ivec3(row.x, i-1, row.y))] + kernelHistogram.values[iY0];
-        intY1.values[iY1] = intY1.values[getIndex(ivec3(row.x, binC-i, row.y))] + kernelHistogram.values[iY1];
-        intZ0.values[iZ0] = intZ0.values[getIndex(ivec3(row, i-1))] + kernelHistogram.values[iZ0];
-        intZ1.values[iZ1] = intZ1.values[getIndex(ivec3(row, binC-i))] + kernelHistogram.values[iZ1];
+        intX0.values[iX0] = intX0.values[getIndex(ivec3(i-1, row))] + smoothHistogram.values[iX0];
+        intX1.values[iX1] = intX1.values[getIndex(ivec3(bins-i, row))] + smoothHistogram.values[iX1];
+        intY0.values[iY0] = intY0.values[getIndex(ivec3(row.x, i-1, row.y))] + smoothHistogram.values[iY0];
+        intY1.values[iY1] = intY1.values[getIndex(ivec3(row.x, bins-i, row.y))] + smoothHistogram.values[iY1];
+        intZ0.values[iZ0] = intZ0.values[getIndex(ivec3(row, i-1))] + smoothHistogram.values[iZ0];
+        intZ1.values[iZ1] = intZ1.values[getIndex(ivec3(row, bins-i))] + smoothHistogram.values[iZ1];
 #endif
+
     }
 }

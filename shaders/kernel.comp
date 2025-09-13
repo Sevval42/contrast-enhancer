@@ -1,7 +1,13 @@
 #version 450
 
+/*
+Smooths the histogram and stores it into a float buffer.
+Uses from the cpu precomputed gaussian weights.
+Also adds the base density (theoretical average density) to every bin of the histogram.
+*/
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
-    uint binCount;
+    uint bins;
     uint radius;
     float d0;
 } constants;
@@ -10,16 +16,16 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
     uint values[];
 } histogram;
 
-layout(set = 0, binding = 3) buffer KernelBuffer {
+layout(set = 0, binding = 3) buffer SmoothHistogramBuffer {
     float values[];
-} kernelHistogram;
+} smoothHistogram;
 
 layout(set = 0, binding = 4) buffer GaussLookUpBuffer {
     float values[];
 } gauss;
 
 int getIndex(ivec3 x) {
-    int bins = int(constants.binCount);
+    int bins = int(constants.bins);
     if(any(lessThan(x, ivec3(0)))) return -1;
     if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return x.r + x.g * bins + x.b * bins * bins;
@@ -28,7 +34,7 @@ int getIndex(ivec3 x) {
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
-    if(any(greaterThanEqual(color, ivec3(int(constants.binCount))))) return;
+    if(any(greaterThanEqual(color, ivec3(int(constants.bins))))) return;
 
     int radius = int(constants.radius);
     float sum = 0;
@@ -48,5 +54,5 @@ void main() {
         }
     }
     sum /= weight;
-    kernelHistogram.values[getIndex(color)] = constants.d0 + sum;
+    smoothHistogram.values[getIndex(color)] = constants.d0 + sum;
 }

@@ -29,11 +29,11 @@ void setupDescriptorSet(
     buffers->integralImages = std::vector<VulkanBuffer>(14); // 8 Corners + 6 Faces for a Cube
     buffers->tempIntegrals = std::vector<VulkanBuffer>(6); // One (big) temp Buffer for every face
 
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);       // 0: Constant
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);       // 0: Constants
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);        // 1: Image
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 2: Histogram
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 3: KernelBuffer
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 4: exp look up table
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 3: Smoothed histogram
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 4: gauss look-up table
     for(int i = 0; i < buffers->integralImages.size(); ++i)
         addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 5-18: integral image
 
@@ -117,7 +117,7 @@ void setupDescriptorSet(
         descriptorSet->addBufferAndData(context, 
             &tempInt, 
             NULL, 
-            integralSize * 4, // 4 or 5 temp histograms for every face integral 
+            integralSize * 4, // 4 temp histograms for every face integral 
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
@@ -131,6 +131,7 @@ void setupDescriptorSet(
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
+    // Only needs this for the final regularization, the baseTransformation is precomputed in the first dispatch
     if(!isBaseDensityRun) {
         VkDescriptorBufferInfo bufferInfo = {};
         bufferInfo.buffer = baseTransformation->buffer;
@@ -149,6 +150,7 @@ void setupDescriptorSet(
     fillDescriptorSet(context, descriptorSet);
 }
 
+// Sets up a commandbuffer for a given descriptor set and sets all the memory barriers
 void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline) {
     vkCmdBindDescriptorSets(
         *commandBuffer, 

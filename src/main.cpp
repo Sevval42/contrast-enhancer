@@ -167,14 +167,20 @@ void initApplication(std::string imageFile) {
         throw std::runtime_error("Failed to load image");
     }
 
+    // add jitter to image
+    for(int i = 0; i < w*h*channels; i++) {
+        if(i%4 == 3) continue;
+        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-6;
+        pixels[i] = fmax(0.001, fmin(0.999, pixels[i]+r));
+    }
+
     size_t numPixels = size_t(w) * h;
     mainBuffers.imageSize = numPixels * 4 * sizeof(float); // forcing 4 channels
     baseBuffers.imageSize = mainBuffers.imageSize;
 
-    float maxC = -1.0f, minC = 1e6f;
-
     float baseDensity = (float)(w*h) / pow(constants.binCount, 3);
     constants.baseDensity = baseDensity;
+    std::cout << "Basedensity: " << baseDensity << std::endl;
 
     LOG("Creating descriptor set for base density");
 
@@ -258,6 +264,7 @@ void shutdownApplication() {
     exitVulkan(context);
 }
 
+// Runs the shaders for the given commandBuffer
 void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
     submitInfo.commandBufferCount = 1;
@@ -305,7 +312,6 @@ int main(int argc, char* argv[]) {
     initApplication(fileName);
 
     // Start running the shaders
-
     VkCommandBuffer commandBuffer;
     {
         VkCommandBufferAllocateInfo allocInfo{};
@@ -359,7 +365,7 @@ int main(int argc, char* argv[]) {
     #endif
     
     #if TRANSFORMATION
-    LOG("Save transformation");
+    LOG("Save transformation as png");
     saveTransformationAsPng(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount+1);
     #endif
 

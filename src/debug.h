@@ -3,6 +3,10 @@
 #include <vector>
 #include <string>
 
+/*
+    Methods for debugging purposes
+*/
+
 void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName, const char dimension);
 void saveHistogramAsCsv(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName);
 

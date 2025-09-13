@@ -1,7 +1,12 @@
 #version 450
 
+/*
+Calculates the resulting transformation for every pixel of the image
+with trilinear interpolation.
+*/
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
-    uint binCount;
+    uint bins;
     uint radius;
     float d0;
 } constants;
@@ -10,10 +15,11 @@ layout(set = 0, binding = 1, rgba32f) uniform image2D img;
 
 layout(set = 0, binding = 25) buffer transformationBuffer { vec4 values[]; } transformation;
 
-layout(set = 0, binding = 26) buffer baseTransformationBuffer { vec4 values[]; } baseTransformation;
+// calculated by the first dispatch
+layout(set = 0, binding = 26) buffer uniformTransformationBuffer { vec4 values[]; } uniformTransformation;
 
 uint getIndex(uvec3 x) { // for transformation only
-    uint w = constants.binCount+1;
+    uint w = constants.bins+1;
     return x.r + x.g * w + x.b * w * w;
 }
 
@@ -24,13 +30,13 @@ void main() {
         return;
     }
 
-    float maxBin = constants.binCount;
+    float bins = constants.bins;
     vec4 color = imageLoad(img, pixelCoords);
-    vec4 c = color * maxBin;
+    vec4 c = color * bins;
 
-    float r0 = floor(c.x);
-    float g0 = floor(c.y);
-    float b0 = floor(c.z);
+    float r0 = clamp(floor(c.x), 0.0, bins - 1.0);
+    float g0 = clamp(floor(c.y), 0.0, bins - 1.0);
+    float b0 = clamp(floor(c.z), 0.0, bins - 1.0);
     float r1 = r0 + 1;
     float g1 = g0 + 1;
     float b1 = b0 + 1;
@@ -39,17 +45,17 @@ void main() {
     float gd = c.y - g0;
     float bd = c.z - b0;
 
-    vec4 t000 = transformation.values[getIndex(uvec3(r0, g0, b0))] - baseTransformation.values[getIndex(uvec3(r0, g0, b0))];
-    vec4 t001 = transformation.values[getIndex(uvec3(r0, g0, b1))] - baseTransformation.values[getIndex(uvec3(r0, g0, b1))];
-    vec4 t010 = transformation.values[getIndex(uvec3(r0, g1, b0))] - baseTransformation.values[getIndex(uvec3(r0, g1, b0))];
-    vec4 t011 = transformation.values[getIndex(uvec3(r0, g1, b1))] - baseTransformation.values[getIndex(uvec3(r0, g1, b1))];
-    vec4 t100 = transformation.values[getIndex(uvec3(r1, g0, b0))] - baseTransformation.values[getIndex(uvec3(r1, g0, b0))];
-    vec4 t101 = transformation.values[getIndex(uvec3(r1, g0, b1))] - baseTransformation.values[getIndex(uvec3(r1, g0, b1))];
-    vec4 t110 = transformation.values[getIndex(uvec3(r1, g1, b0))] - baseTransformation.values[getIndex(uvec3(r1, g1, b0))];
-    vec4 t111 = transformation.values[getIndex(uvec3(r1, g1, b1))] - baseTransformation.values[getIndex(uvec3(r1, g1, b1))];
+    vec4 t000 = transformation.values[getIndex(uvec3(r0, g0, b0))] - uniformTransformation.values[getIndex(uvec3(r0, g0, b0))];
+    vec4 t001 = transformation.values[getIndex(uvec3(r0, g0, b1))] - uniformTransformation.values[getIndex(uvec3(r0, g0, b1))];
+    vec4 t010 = transformation.values[getIndex(uvec3(r0, g1, b0))] - uniformTransformation.values[getIndex(uvec3(r0, g1, b0))];
+    vec4 t011 = transformation.values[getIndex(uvec3(r0, g1, b1))] - uniformTransformation.values[getIndex(uvec3(r0, g1, b1))];
+    vec4 t100 = transformation.values[getIndex(uvec3(r1, g0, b0))] - uniformTransformation.values[getIndex(uvec3(r1, g0, b0))];
+    vec4 t101 = transformation.values[getIndex(uvec3(r1, g0, b1))] - uniformTransformation.values[getIndex(uvec3(r1, g0, b1))];
+    vec4 t110 = transformation.values[getIndex(uvec3(r1, g1, b0))] - uniformTransformation.values[getIndex(uvec3(r1, g1, b0))];
+    vec4 t111 = transformation.values[getIndex(uvec3(r1, g1, b1))] - uniformTransformation.values[getIndex(uvec3(r1, g1, b1))];
 
 
-    vec4 transf =
+    vec4 mapping =
         t000 * (1-rd) * (1-gd) * (1-bd) +
         t001 * (1-rd) * (1-gd) * bd +
         t010 * (1-rd) * gd * (1-bd) +
@@ -59,8 +65,9 @@ void main() {
         t110 * rd * gd * (1-bd) +
         t111 * rd * gd * bd;
 
-    color.xyz += transf.xyz;
+    color.xyz += mapping.xyz;
+    //color = clamp(color, 0, 1);
 
-    imageStore(img, pixelCoords, vec4(color.xyz, color.a));
+    imageStore(img, pixelCoords, color);
     //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
 }

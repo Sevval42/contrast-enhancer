@@ -1,7 +1,16 @@
 #version 450
 
+/*
+Creates the histogram. Values are split into constants.bins^3 bins, e.g. (for 4 bins in 1D)
+0.1 adds 1 to bin 0
+0.75 adds 1 to bin 3
+1.0 adds 1 to bin 3 too
+
+atomicAdd only supports integer buffers on my hardware
+*/
+
 layout(set = 0, binding = 0) uniform UniformBuffer {
-    uint binCount;
+    uint bins;
     uint radius;
 } constants;
 
@@ -19,13 +28,14 @@ void main() {
     }
 
     vec3 color = imageLoad(img, pixelCoords).xyz;
+    color = clamp(color, 0.0, 1.0);
 
-    color *= float(constants.binCount);
+    color *= float(constants.bins);
 
-    uint rBin = min(uint(floor(color.r)), constants.binCount - 1u);
-    uint gBin = min(uint(floor(color.g)), constants.binCount - 1u);
-    uint bBin = min(uint(floor(color.b)), constants.binCount - 1u);
+    uint rBin = min(uint(floor(color.r)), constants.bins - 1u);
+    uint gBin = min(uint(floor(color.g)), constants.bins - 1u);
+    uint bBin = min(uint(floor(color.b)), constants.bins - 1u);
 
-    uint binIndex = rBin + gBin * constants.binCount + bBin * constants.binCount * constants.binCount;
+    uint binIndex = rBin + gBin * constants.bins + bBin * constants.bins * constants.bins;
     atomicAdd(histogram.values[binIndex], 1);
 }
