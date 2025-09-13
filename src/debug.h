@@ -9,6 +9,7 @@
 
 void saveHistogramAsPng(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName, const char dimension);
 void saveHistogramAsCsv(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount, const char* fileName);
+float calculateStandardDeviation(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount);
 
 void saveIntegralsAsPngs(VulkanContext* context, std::vector<VulkanBuffer>& integrals, uint32_t binCount);
 void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, uint32_t binCount, const char* fileName, int direction);

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -29,6 +30,7 @@
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
+#define SAVE_DEVIATION false
 #define SAVECSV false
 #define INVERT false
 
@@ -274,6 +276,15 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
     float averageMillis = 0;
     std::string loadingBar = std::string(barWidth, '|');
 
+    #if SAVE_DEVIATION
+    std::ofstream file("../plots/standardDeviation.csv");
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: standardDeviation.csv" << std::endl;
+        return;
+    }
+    file << "iteration,x\n";
+    #endif
+
     for(int i = 0; i < iterations; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
@@ -295,7 +306,15 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         oss << "histograms/histogram" << std::setw(5) << std::setfill('0') << i+1 << ".png";
         saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str(), 'x');
         #endif
+
+        #if SAVE_DEVIATION
+        float sd = calculateStandardDeviation(context, &mainBuffers.kernelBuffer, constants.binCount);
+        file << i << "," << sd << "\n";
+        #endif
     }
+    #if SAVE_DEVIATION
+    file.close();
+    #endif
     std::cout << std::endl;
 }
 
