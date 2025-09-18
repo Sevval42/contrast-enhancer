@@ -48,7 +48,7 @@ void main() {
                 if(neighborIndex == -1) continue;
 
                 uint weightIndex = (z + radius) * size * size + (y + radius) * size + (x + radius);
-                sum += histogram.values[neighborIndex] * gauss.values[weightIndex];
+                sum += float(histogram.values[neighborIndex]) * gauss.values[weightIndex];
                 weight += gauss.values[weightIndex];
             }
         }

@@ -173,7 +173,7 @@ void initApplication(std::string imageFile) {
     for(int i = 0; i < w*h*channels; i++) {
         if(i%4 == 3) continue;
         float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-6;
-        pixels[i] = fmax(0.001, fmin(0.999, pixels[i]+r));
+        //pixels[i] = fmax(0.001, fmin(0.999, pixels[i]+r));
     }
 
     size_t numPixels = size_t(w) * h;

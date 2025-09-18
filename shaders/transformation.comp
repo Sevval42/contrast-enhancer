@@ -16,6 +16,7 @@ t[0][1]          t[1][1] ...
 
 #define USE_NORMAL_INT 1
 #define USE_ROTATED_INT 0
+#define USE_NORMAL_ANCHOR 1
 
 layout(set = 0, binding = 0) uniform UniformBuffer {
     uint bins;
@@ -66,7 +67,8 @@ int getIndexTemp(int n, ivec3 x) {
     return getIndex(x) + n * bins * bins * bins;
 }
 
-// anchor point calculation for point p in the direction d
+// anchor point calculation for point p in the direction d 
+#if USE_NORMAL_ANCHOR
 vec3 anchor(vec3 p, vec3 d) {
     vec3 tmax;
     tmax.x = (d.x > 0.0) ? (1.0 - p.x)/d.x : (0.0 - p.x)/d.x;
@@ -75,6 +77,29 @@ vec3 anchor(vec3 p, vec3 d) {
     float t = min(tmax.x, min(tmax.y, tmax.z));
     return p + t * d;
 }
+#else
+vec3 anchor(vec3 p, vec3 d) {
+    float eps = 1e-12;
+
+    float tx = (abs(d.x) > eps) 
+        ? ((d.x > 0.0) ? (1.0 - p.x) / d.x : (0.0 - p.x) / d.x)
+        : 1e30;
+
+    float ty = (abs(d.y) > eps) 
+        ? ((d.y > 0.0) ? (1.0 - p.y) / d.y : (0.0 - p.y) / d.y)
+        : 1e30;
+
+    float tz = (abs(d.z) > eps) 
+        ? ((d.z > 0.0) ? (1.0 - p.z) / d.z : (0.0 - p.z) / d.z)
+        : 1e30;
+
+    float t = min(tx, min(ty, tz));
+
+    vec3 result = p + d * t;
+
+    return clamp(result, 0.0, 1.0);
+}
+#endif
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
@@ -92,6 +117,8 @@ void main() {
     vec3 p = vec3(x, y, z);
 
     // Anchor Points (q000 is opposite of (0,0,0) )
+    
+#if USE_NORMAL_ANCHOR
     vec3 q000 = anchor(p, vec3( 1, 1, 1));
     vec3 q001 = anchor(p, vec3( 1, 1,-1));
     vec3 q010 = anchor(p, vec3( 1,-1, 1));
@@ -100,7 +127,16 @@ void main() {
     vec3 q101 = anchor(p, vec3(-1, 1,-1));
     vec3 q110 = anchor(p, vec3(-1,-1, 1));
     vec3 q111 = anchor(p, vec3(-1,-1,-1));
-
+#else
+    vec3 q000 = anchor(p, (vec3(p.x, p.y, p.z)));
+    vec3 q001 = anchor(p, (vec3(p.x, p.y, p.z-1)));
+    vec3 q010 = anchor(p, (vec3(p.x, p.y-1, p.z)));
+    vec3 q011 = anchor(p, (vec3(p.x, p.y-1, p.z-1)));
+    vec3 q100 = anchor(p, (vec3(p.x-1, p.y, p.z)));
+    vec3 q101 = anchor(p, (vec3(p.x-1, p.y, p.z-1)));
+    vec3 q110 = anchor(p, (vec3(p.x-1, p.y-1, p.z)));
+    vec3 q111 = anchor(p, (vec3(p.x-1, p.y-1, p.z-1)));
+#endif
 
     int index000 = getIndex(ivec3(i-1, j-1, k-1));
     int index001 = getIndex(ivec3(i-1, j-1, k));
