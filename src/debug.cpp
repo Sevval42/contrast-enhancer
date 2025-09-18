@@ -102,11 +102,11 @@ void saveImageAsPng(VulkanContext* context, VulkanImage* image, uint32_t imageSi
 
     std::vector<uint8_t> outputBytes(image->extent.width * image->extent.height * 4);
 
-    float max = 0;
+    float max = 2;
     for (size_t i = 0; i < outputPixels.size(); ++i) {
         float v = std::min(std::max(outputPixels[i], 0.0f), 1.0f);
         outputBytes[i] = static_cast<uint8_t>(v * 255.0f);
-        if(outputPixels[i] > max && i % 4 == 0) max = outputPixels[i];
+        if(outputPixels[i] < max && i % 4 == 0) max = outputPixels[i];
     }
 
     std::cout << "max red value: " << max << std::endl;
@@ -252,12 +252,16 @@ void saveRotatedIntegralAsCsv(VulkanContext* context, VulkanBuffer* integral, ui
 }
 
 void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformation, VulkanBuffer* baseTransformation, uint32_t binCount, const char* fileName, int vectorCount) {
-    std::ofstream file(fileName);
-    if (!file.is_open()) {
+    std::ofstream resultFile(fileName);
+    std::ofstream densityFile("../plots/densityTransformationVector.csv");
+    std::ofstream uniformFile("../plots/uniformTransformationVector.csv");
+    if (!resultFile.is_open() || !densityFile.is_open() || !uniformFile.is_open()) {
         std::cerr << "Error opening file: " << fileName << std::endl;
         return;
     }
-    file << "x,y,z,u,v,w\n";
+    resultFile << "x,y,z,u,v,w\n";
+    densityFile << "x,y,z,u,v,w\n";
+    uniformFile << "x,y,z,u,v,w\n";
 
     uint32_t count = pow(binCount+1, 3);
     std::vector<float> transf(count * 4);
@@ -271,21 +275,33 @@ void saveTransformationAsCsv(VulkanContext* context, VulkanBuffer* transformatio
     for(int z = 0; z <= binCount; z += step){
         for(int y = 0; y <= binCount; y += step){
             for(int x = 0; x <= binCount; x += step){
-                if(x == 16) {
+                if(true) {
                     int index = (x + y * n + z * n * n) * 4;
-                    float dx = transf[index] - base_transf[index];
-                    float dy = transf[index+1] - base_transf[index+1];
-                    float dz = transf[index+2] - base_transf[index+2];
-                    float factor = binCount;
+                    float dtx = transf[index] * binCount - (float)x;
+                    float dty = transf[index+1] * binCount - (float)y;
+                    float dtz = transf[index+2] * binCount - (float)z;
+
+                    float utx = -base_transf[index] * binCount + (float)x;
+                    float uty = -base_transf[index+1] * binCount + (float)y;
+                    float utz = -base_transf[index+2] * binCount + (float)z;
+
+                    float dx = dtx + utx;
+                    float dy = dty + uty;
+                    float dz = dtz + utz;
+                    float factor = 1;
                     dx *= factor;
                     dy *= factor;
                     dz *= factor;
-                    file << x << "," << y << "," << z << "," << dx << "," << dy << "," << dz << "\n";
+                    resultFile << x << "," << y << "," << z << "," << dx << "," << dy << "," << dz << "\n";
+                    uniformFile << x << "," << y << "," << z << "," <<  utx << "," << uty << "," << utz << "\n";
+                    densityFile << x << "," << y << "," << z << "," << dtx << "," << dty << "," << dtz << "\n";
                 }
             }
         }
     }
-    file.close();
+    resultFile.close();
+    uniformFile.close();
+    densityFile.close();
 }
 
 void saveDataAsCsv(VulkanContext* context, VulkanImage* image, uint32_t imageSize, const char* fileName, int skipFactor){
@@ -300,6 +316,7 @@ void saveDataAsCsv(VulkanContext* context, VulkanImage* image, uint32_t imageSiz
 
     file << "r,g,b\n";
     for(int i = 0; i < outputPixels.size(); i+= 4 * skipFactor){
+        if(outputPixels[i] >= 0.47 && outputPixels[i] <= 0.53)
         file << outputPixels[i] << "," << outputPixels[i+1] << "," << outputPixels[i+2] << "\n";
     }
     file.close();
