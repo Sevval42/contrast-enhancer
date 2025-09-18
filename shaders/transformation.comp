@@ -28,30 +28,25 @@ layout(set = 0, binding = 2) buffer HistogramBuffer {
     uint values[];
 } histogram;
 
-layout(set = 0, binding =  5) buffer integralBuffer000 { float values[]; } int000;
-layout(set = 0, binding =  6) buffer integralBuffer001 { float values[]; } int001;
-layout(set = 0, binding =  7) buffer integralBuffer010 { float values[]; } int010;
-layout(set = 0, binding =  8) buffer integralBuffer011 { float values[]; } int011;
-layout(set = 0, binding =  9) buffer integralBuffer100 { float values[]; } int100;
-layout(set = 0, binding = 10) buffer integralBuffer101 { float values[]; } int101;
-layout(set = 0, binding = 11) buffer integralBuffer110 { float values[]; } int110;
-layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int111;
+layout(set = 0, binding =  5) buffer integralBuffer { float values[]; } integral;
 
-layout(set = 0, binding = 13) buffer integralBufferX0 { float values[]; } intX0;
-layout(set = 0, binding = 14) buffer integralBufferX1 { float values[]; } intX1;
-layout(set = 0, binding = 15) buffer integralBufferY0 { float values[]; } intY0;
-layout(set = 0, binding = 16) buffer integralBufferY1 { float values[]; } intY1;
-layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
-layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
+// Rotated integrals
+layout(set = 0, binding = 6) buffer integralBufferX0 { float values[]; } intX0;
+layout(set = 0, binding = 7) buffer integralBufferX1 { float values[]; } intX1;
+layout(set = 0, binding = 8) buffer integralBufferY0 { float values[]; } intY0;
+layout(set = 0, binding = 9) buffer integralBufferY1 { float values[]; } intY1;
+layout(set = 0, binding = 10) buffer integralBufferZ0 { float values[]; } intZ0;
+layout(set = 0, binding = 11) buffer integralBufferZ1 { float values[]; } intZ1;
 
-layout(set = 0, binding = 19) buffer tempIntBufferX0 { float values[]; } tempX0;
-layout(set = 0, binding = 20) buffer tempIntBufferX1 { float values[]; } tempX1;
-layout(set = 0, binding = 21) buffer tempIntBufferY0 { float values[]; } tempY0;
-layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
-layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
-layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
+// Temp buffer for rotated integrals
+layout(set = 0, binding = 12) buffer tempIntBufferX0 { float values[]; } tempX0;
+layout(set = 0, binding = 13) buffer tempIntBufferX1 { float values[]; } tempX1;
+layout(set = 0, binding = 14) buffer tempIntBufferY0 { float values[]; } tempY0;
+layout(set = 0, binding = 15) buffer tempIntBufferY1 { float values[]; } tempY1;
+layout(set = 0, binding = 16) buffer tempIntBufferZ0 { float values[]; } tempZ0;
+layout(set = 0, binding = 17) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 
-layout(set = 0, binding = 25, std140) buffer transformationBuffer { vec4 values[]; } transformation;
+layout(set = 0, binding = 18, std140) buffer transformationBuffer { vec4 values[]; } transformation;
 
 int getIndex(ivec3 x) {
     int bins = int(constants.bins);
@@ -65,6 +60,11 @@ int getIndexTemp(int n, ivec3 x) {
     if(any(lessThan(x, ivec3(0)))) return -1;
     if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
     return getIndex(x) + n * bins * bins * bins;
+}
+
+float getIntegralAt(int x, int y, int z) {
+    int index = getIndex(ivec3(x, y, z));
+    return index == -1 ? 0 : integral.values[index];
 }
 
 // anchor point calculation for point p in the direction d 
@@ -104,20 +104,21 @@ vec3 anchor(vec3 p, vec3 d) {
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     float binsFloat = constants.bins;
+    int bins = int(constants.bins);
 
     ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
-    if(any(greaterThan(color, ivec3(binsFloat)))) return;
+    if(any(greaterThan(color, ivec3(bins)))) return;
 
-    float x = color.x / float(binsFloat);
-    float y = color.y / float(binsFloat);
-    float z = color.z / float(binsFloat);
+    float x = color.x / binsFloat;
+    float y = color.y / binsFloat;
+    float z = color.z / binsFloat;
     int i = color.x;
     int j = color.y;
     int k = color.z;
     vec3 p = vec3(x, y, z);
 
     // Anchor Points (q000 is opposite of (0,0,0) )
-    
+
 #if USE_NORMAL_ANCHOR
     vec3 q000 = anchor(p, vec3( 1, 1, 1));
     vec3 q001 = anchor(p, vec3( 1, 1,-1));
@@ -138,24 +139,26 @@ void main() {
     vec3 q111 = anchor(p, (vec3(p.x-1, p.y-1, p.z-1)));
 #endif
 
-    int index000 = getIndex(ivec3(i-1, j-1, k-1));
-    int index001 = getIndex(ivec3(i-1, j-1, k));
-    int index010 = getIndex(ivec3(i-1, j, k-1));
-    int index011 = getIndex(ivec3(i-1, j, k));
-    int index100 = getIndex(ivec3(i, j-1, k-1));
-    int index101 = getIndex(ivec3(i, j-1, k));
-    int index110 = getIndex(ivec3(i, j, k-1));
-    int index111 = getIndex(ivec3(i, j, k));
+    float max_x = getIntegralAt(bins-1, j-1, k-1);
+    float max_y = getIntegralAt(i-1, bins-1, k-1);
+    float max_z = getIntegralAt(i-1, j-1, bins-1);
+    float max_xy = getIntegralAt(bins-1, bins-1, k-1);
+    float max_yz = getIntegralAt(i-1, bins-1, bins-1);
+    float max_xz = getIntegralAt(bins-1, j-1, bins-1);
+    float max_xyz = getIntegralAt(bins-1, bins-1, bins-1);
 
-    // avoid wraparounds of indices with pre-checking if its out of bounds
-    float weight000 = index000 == -1 ? 0 :  int000.values[index000];
-    float weight001 = index001 == -1 ? 0 :  int001.values[index001];
-    float weight010 = index010 == -1 ? 0 :  int010.values[index010];
-    float weight011 = index011 == -1 ? 0 :  int011.values[index011];
-    float weight100 = index100 == -1 ? 0 :  int100.values[index100];
-    float weight101 = index101 == -1 ? 0 :  int101.values[index101];
-    float weight110 = index110 == -1 ? 0 :  int110.values[index110];
-    float weight111 = index111 == -1 ? 0 :  int111.values[index111];
+
+    float weight000 = getIntegralAt(i-1, j-1, k-1);
+
+    float weight100 = max_x - weight000;
+    float weight010 = max_y - weight000;
+    float weight001 = max_z - weight000;
+
+    float weight110 = max_xy - max_x - max_y + weight000;
+    float weight011 = max_yz - max_y - max_z + weight000;
+    float weight101 = max_xz - max_x - max_z + weight000;
+
+    float weight111 = max_xyz - max_xy - max_yz - max_xz + max_x + max_y + max_z - weight000;
 
 #if USE_ROTATED_INT
     ivec3 id000 = ivec3(i-1, j-1, k-1);
@@ -245,13 +248,13 @@ void main() {
     }
 #endif
 
-    map /= int111.values[0];
+    map /= max_xyz;
 
-    uint bin1 = constants.bins+1; // there are (bins+1)^3 transformations
+    uint bin1 = bins+1; // there are (bins+1)^3 transformations
     uint trIndex = 
         uint(i + j * bin1 + k * bin1 * bin1); 
     transformation.values[trIndex] = vec4(map, 0);
 
-    if(any(lessThan(ivec3(color), ivec3(constants.bins)))) // clear integer histogram for next iteration
+    if(any(lessThan(ivec3(color), ivec3(bins)))) // clear accumulation histogram for next iteration
         histogram.values[getIndex(color)] = 0;
 }

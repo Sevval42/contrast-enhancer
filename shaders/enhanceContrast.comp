@@ -13,10 +13,10 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
 
 layout(set = 0, binding = 1, rgba32f) uniform image2D img;
 
-layout(set = 0, binding = 25) buffer transformationBuffer { vec4 values[]; } transformation;
+layout(set = 0, binding = 18) buffer transformationBuffer { vec4 values[]; } transformation;
 
 // calculated by the first dispatch
-layout(set = 0, binding = 26) buffer uniformTransformationBuffer { vec4 values[]; } uniformTransformation;
+layout(set = 0, binding = 19) buffer uniformTransformationBuffer { vec4 values[]; } uniformTransformation;
 
 uint getIndex(uvec3 x) { // for transformation only
     uint w = constants.bins+1;

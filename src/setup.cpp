@@ -26,7 +26,7 @@ void setupDescriptorSet(
         baseHistogram[i] = 0;
     }
 
-    buffers->integralImages = std::vector<VulkanBuffer>(14); // 8 Corners + 6 Faces for a Cube
+    buffers->integralImages = std::vector<VulkanBuffer>(7); // 1 Corner + 6 Faces for a Cube
     buffers->tempIntegrals = std::vector<VulkanBuffer>(6); // One (big) temp Buffer for every face
 
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);       // 0: Constants

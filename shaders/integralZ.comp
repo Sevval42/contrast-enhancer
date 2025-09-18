@@ -12,28 +12,23 @@ layout(set = 0, binding = 0) uniform UniformBuffer {
     float d0;
 } constants;
 
-layout(set = 0, binding =  5) buffer integralBuffer000 { float values[]; } int000;
-layout(set = 0, binding =  6) buffer integralBuffer001 { float values[]; } int001;
-layout(set = 0, binding =  7) buffer integralBuffer010 { float values[]; } int010;
-layout(set = 0, binding =  8) buffer integralBuffer011 { float values[]; } int011;
-layout(set = 0, binding =  9) buffer integralBuffer100 { float values[]; } int100;
-layout(set = 0, binding = 10) buffer integralBuffer101 { float values[]; } int101;
-layout(set = 0, binding = 11) buffer integralBuffer110 { float values[]; } int110;
-layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int111;
+layout(set = 0, binding =  5) buffer integralBuffer { float values[]; } integral;
 
-layout(set = 0, binding = 13) buffer integralBufferX0 { float values[]; } intX0;
-layout(set = 0, binding = 14) buffer integralBufferX1 { float values[]; } intX1;
-layout(set = 0, binding = 15) buffer integralBufferY0 { float values[]; } intY0;
-layout(set = 0, binding = 16) buffer integralBufferY1 { float values[]; } intY1;
-layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
-layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
+// Rotated integrals
+layout(set = 0, binding = 6) buffer integralBufferX0 { float values[]; } intX0;
+layout(set = 0, binding = 7) buffer integralBufferX1 { float values[]; } intX1;
+layout(set = 0, binding = 8) buffer integralBufferY0 { float values[]; } intY0;
+layout(set = 0, binding = 9) buffer integralBufferY1 { float values[]; } intY1;
+layout(set = 0, binding = 10) buffer integralBufferZ0 { float values[]; } intZ0;
+layout(set = 0, binding = 11) buffer integralBufferZ1 { float values[]; } intZ1;
 
-layout(set = 0, binding = 19) buffer tempIntBufferX0 { float values[]; } tempX0;
-layout(set = 0, binding = 20) buffer tempIntBufferX1 { float values[]; } tempX1;
-layout(set = 0, binding = 21) buffer tempIntBufferY0 { float values[]; } tempY0;
-layout(set = 0, binding = 22) buffer tempIntBufferY1 { float values[]; } tempY1;
-layout(set = 0, binding = 23) buffer tempIntBufferZ0 { float values[]; } tempZ0;
-layout(set = 0, binding = 24) buffer tempIntBufferZ1 { float values[]; } tempZ1;
+// Temp buffer for rotated integrals
+layout(set = 0, binding = 12) buffer tempIntBufferX0 { float values[]; } tempX0;
+layout(set = 0, binding = 13) buffer tempIntBufferX1 { float values[]; } tempX1;
+layout(set = 0, binding = 14) buffer tempIntBufferY0 { float values[]; } tempY0;
+layout(set = 0, binding = 15) buffer tempIntBufferY1 { float values[]; } tempY1;
+layout(set = 0, binding = 16) buffer tempIntBufferZ0 { float values[]; } tempZ0;
+layout(set = 0, binding = 17) buffer tempIntBufferZ1 { float values[]; } tempZ1;
 
 int getIndex(ivec3 x) {
     int bins = int(constants.bins);
@@ -53,9 +48,6 @@ void main() {
     ivec2 row = ivec2(gl_GlobalInvocationID.xy);
     if(any(greaterThanEqual(row, ivec2(bins)))) return;
 
-    uint oldIndex0 = getIndex(ivec3(row.xy, 0));
-    uint oldIndex1 = getIndex(ivec3(row.xy, bins-1));
-
 #if USE_ROTATED_INT
     float sumX0Down = intX0.values[getIndex(ivec3(0, row))];
     float sumX0Up = intX0.values[getIndex(ivec3(0, row))];
@@ -72,21 +64,8 @@ void main() {
 #endif
 
     for(int i = 1; i < bins; ++i) {
-        uint index0 = getIndex(ivec3(row.xy, i));
-        uint index1 = getIndex(ivec3(row.xy, bins-1-i));
+        integral.values[getIndex(ivec3(row.xy, i))] += integral.values[getIndex(ivec3(row.xy, i-1))];
 
-        int000.values[index0] += int000.values[oldIndex0];
-        int001.values[index1] += int001.values[oldIndex1];
-        int010.values[index0] += int010.values[oldIndex0];
-        int011.values[index1] += int011.values[oldIndex1];
-        int100.values[index0] += int100.values[oldIndex0];
-        int101.values[index1] += int101.values[oldIndex1];
-        int110.values[index0] += int110.values[oldIndex0];
-        int111.values[index1] += int111.values[oldIndex1];
-
-        oldIndex0 = index0;
-        oldIndex1 = index1;
-    
 #if USE_ROTATED_INT
         // Up and down accumulation for rotated integrals
         int shiftUp = (row.y-i+bins)%bins;

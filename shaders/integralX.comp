@@ -1,7 +1,7 @@
 #version 450
 
 /*
-Calculates sums across both X-directions.
+Calculates sums X
 */
 
 #define USE_ROTATED_INT 0
@@ -17,23 +17,15 @@ layout(set = 0, binding = 3) buffer SmoothHistogramBuffer {
 } smoothHistogram;
 
 // Integrals
-//int000 corresponds to the integral, where the values are summed towards (0,0,0)
-layout(set = 0, binding =  5) buffer integralBuffer000 { float values[]; } int000;
-layout(set = 0, binding =  6) buffer integralBuffer001 { float values[]; } int001;
-layout(set = 0, binding =  7) buffer integralBuffer010 { float values[]; } int010;
-layout(set = 0, binding =  8) buffer integralBuffer011 { float values[]; } int011;
-layout(set = 0, binding =  9) buffer integralBuffer100 { float values[]; } int100;
-layout(set = 0, binding = 10) buffer integralBuffer101 { float values[]; } int101;
-layout(set = 0, binding = 11) buffer integralBuffer110 { float values[]; } int110;
-layout(set = 0, binding = 12) buffer integralBuffer111 { float values[]; } int111;
+layout(set = 0, binding =  5) buffer integralBuffer { float values[]; } integral;
 
 // Rotated Integrals
-layout(set = 0, binding = 13) buffer integralBufferX0 { float values[]; } intX0;
-layout(set = 0, binding = 14) buffer integralBufferX1 { float values[]; } intX1;
-layout(set = 0, binding = 15) buffer integralBufferY0 { float values[]; } intY0;
-layout(set = 0, binding = 16) buffer integralBufferY1 { float values[]; } intY1;
-layout(set = 0, binding = 17) buffer integralBufferZ0 { float values[]; } intZ0;
-layout(set = 0, binding = 18) buffer integralBufferZ1 { float values[]; } intZ1;
+layout(set = 0, binding = 6) buffer integralBufferX0 { float values[]; } intX0;
+layout(set = 0, binding = 7) buffer integralBufferX1 { float values[]; } intX1;
+layout(set = 0, binding = 8) buffer integralBufferY0 { float values[]; } intY0;
+layout(set = 0, binding = 9) buffer integralBufferY1 { float values[]; } intY1;
+layout(set = 0, binding = 10) buffer integralBufferZ0 { float values[]; } intZ0;
+layout(set = 0, binding = 11) buffer integralBufferZ1 { float values[]; } intZ1;
 
 uint getIndex(ivec3 x) {
     uint bins = constants.bins;
@@ -47,20 +39,8 @@ void main() {
     if(any(greaterThanEqual(row, ivec2(bins)))) return;
 
     // Normal integrals
-    uint index0 = getIndex(ivec3(0, row));
-    uint index1 = getIndex(ivec3(bins-1, row));
-
-    float sum0 = smoothHistogram.values[index0];
-    float sum1 = smoothHistogram.values[index1];
-
-    int000.values[index0] = sum0;
-    int001.values[index0] = sum0;
-    int010.values[index0] = sum0;
-    int011.values[index0] = sum0;
-    int100.values[index1] = sum1;
-    int101.values[index1] = sum1;
-    int110.values[index1] = sum1;
-    int111.values[index1] = sum1;
+    uint index = getIndex(ivec3(0, row));
+    integral.values[index] = smoothHistogram.values[index];
 
 #if USE_ROTATED_INT
     // Columns for rotated integrals
@@ -74,19 +54,8 @@ void main() {
 
     for(uint i = 1; i < bins; ++i) {
         // Normal integrals
-        index0 = getIndex(ivec3(i, row));
-        index1 = getIndex(ivec3(bins-1 - i, row));
-        sum0 += smoothHistogram.values[index0];
-        sum1 += smoothHistogram.values[index1];
-
-        int000.values[index0] = sum0;
-        int001.values[index0] = sum0;
-        int010.values[index0] = sum0;
-        int011.values[index0] = sum0;
-        int100.values[index1] = sum1;
-        int101.values[index1] = sum1;
-        int110.values[index1] = sum1;
-        int111.values[index1] = sum1;
+        index = getIndex(ivec3(i, row));
+        integral.values[index] = integral.values[getIndex(ivec3(i-1, row))] + smoothHistogram.values[index];
 
 #if USE_ROTATED_INT
         // Columns for rotated integrals
