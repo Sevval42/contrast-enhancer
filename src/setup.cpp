@@ -21,6 +21,7 @@ void setupDescriptorSet(
     uint32_t histogramSize = sizeof(uint32_t) * binC * binC * binC;
     uint32_t integralSize = sizeof(float) * binC * binC * binC;
     uint32_t transformationSize = 4 * sizeof(float) * (binC+1) * (binC+1) * (binC+1);
+    uint32_t metricSize = sizeof(float) * binC * binC;
     
     for(int i = 0; i < baseHistogram.size(); ++i) {
         baseHistogram[i] = 0;
@@ -35,15 +36,16 @@ void setupDescriptorSet(
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 3: Smoothed histogram
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 4: gauss look-up table
     for(int i = 0; i < buffers->integralImages.size(); ++i)
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 5-18: integral image
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 5-11: integral image
 
     for(int i = 0; i < buffers->tempIntegrals.size(); ++i)
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 19-24: tempIntegrals
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 12-17: tempIntegrals
     
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 25: Transformation buffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 18: Transformation buffer
     if(!isBaseDensityRun) {
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 26: Basedensity transformation buffer
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 19: Basedensity transformation buffer
     }
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 20: Metric buffer
 
     createDescriptorSet(context, descriptorSet);
 
@@ -144,7 +146,14 @@ void setupDescriptorSet(
 
         descriptorSet->buffers.push_back(info);
     }
-    
+
+    descriptorSet->addBufferAndData(context,
+        &buffers->metric,
+        NULL,
+        metricSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );    
 
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSet);
@@ -190,6 +199,7 @@ void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* des
 }
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
+    destroyBuffer(context, &stageBuffers->metric);
     destroyBuffer(context, &stageBuffers->transformationBuffer);
     for(auto& tempInt : stageBuffers->tempIntegrals) {
         destroyBuffer(context, &tempInt);

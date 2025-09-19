@@ -1,0 +1,33 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint bins;
+    uint radius;
+    float d0;
+} constants;
+
+layout(set = 0, binding = 3) buffer readonly SmoothHistogramBuffer {
+    float values[];
+} smoothHistogram;
+
+layout(set = 0, binding = 20) buffer metricBuffer { float values[]; } metric;
+
+uint getIndex(ivec3 x) {
+    uint bins = constants.bins;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+void main() {
+    uint bins = constants.bins;
+    ivec2 row = ivec2(gl_GlobalInvocationID.xy);
+    if(any(greaterThanEqual(row, ivec2(bins)))) return;
+
+    float variance = 0;
+
+    for(int i = 0; i < bins; ++i) {
+        float diff = smoothHistogram.values[getIndex(ivec3(row, i))] - 2*constants.d0; // d0 was already added as background density
+        variance += diff*diff;
+    }
+    metric.values[row.x + row.y*bins] = variance / float(bins);
+}

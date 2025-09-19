@@ -26,6 +26,7 @@ struct StageBuffers {
     std::vector<VulkanBuffer> tempIntegrals;
 
     VulkanBuffer transformationBuffer;
+    VulkanBuffer metric;
 };
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers);

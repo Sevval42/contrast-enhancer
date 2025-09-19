@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
+#include <numeric>
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
@@ -23,6 +24,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define AUTO_STOP true
+#define JITTER true
+
 // Constants for debugging purposes
 #define RANDIMG false
 #define UNIFORMIMG false
@@ -30,7 +34,6 @@
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
-#define SAVE_DEVIATION false
 #define SAVECSV false
 #define INVERT false
 
@@ -170,11 +173,13 @@ void initApplication(std::string imageFile) {
     }
 
     // add jitter to image
+    #if JITTER
     for(int i = 0; i < w*h*channels; i++) {
         if(i%4 == 3) continue;
-        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-6;
-        //pixels[i] = fmax(0.001, fmin(0.999, pixels[i]+r));
+        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-5;
+        pixels[i] = fmax(0.0f, fmin(1.0f, pixels[i]+r));
     }
+    #endif
 
     size_t numPixels = size_t(w) * h;
     mainBuffers.imageSize = numPixels * 4 * sizeof(float); // forcing 4 channels
@@ -228,6 +233,9 @@ void initApplication(std::string imageFile) {
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
     computeShaders.push_back("../shaders/kernel.spv");
+#if AUTO_STOP
+    computeShaders.push_back("../shaders/metric.spv");
+#endif
     computeShaders.push_back("../shaders/integralX.spv");
     computeShaders.push_back("../shaders/integralY.spv");
     computeShaders.push_back("../shaders/integralZ.spv");
@@ -240,6 +248,9 @@ void initApplication(std::string imageFile) {
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
+#if AUTO_STOP
+        ivec3{groupsInt, groupsInt, 1},
+#endif
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
@@ -276,29 +287,38 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
     float averageMillis = 0;
     std::string loadingBar = std::string(barWidth, '|');
 
-    #if SAVE_DEVIATION
+#if AUTO_STOP
     std::ofstream file("../plots/standardDeviation.csv");
     if (!file.is_open()) {
         std::cerr << "Error opening file: standardDeviation.csv" << std::endl;
         return;
     }
     file << "iteration,x\n";
-    #endif
+#endif
 
+    float variance = 1e30;
     for(int i = 0; i < iterations; ++i) {
+        // Run Shader iteration
         auto start = std::chrono::high_resolution_clock::now();
         if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
         vkQueueWaitIdle(context->computeQueue.queue);
 
+        // If enabled, check for increasing variance of histogram data
+        #if AUTO_STOP
+        uint32_t count = constants.binCount * constants.binCount;
+        std::vector<float> metricData(count);
+        getDataFromBufferWithStagingBuffer(context, &mainBuffers.metric, metricData.data(), sizeof(float) * count);
+
+        float newVariance = std::accumulate(metricData.begin(), metricData.end(), 0.0f);
+        newVariance /= (float)pow(constants.binCount, 2);
+        #endif
         
+        // time measurement and progress bar
         averageMillis += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
-        // Progress fraction
         float progress = static_cast<float>(i + 1) / iterations;
         int pos = static_cast<int>(barWidth * progress);
-
-        // Draw progress bar
         printProgress(progress, barWidth, loadingBar, averageMillis/(i+1));
 
         #if VIDEO
@@ -307,12 +327,18 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str(), 'x');
         #endif
 
-        #if SAVE_DEVIATION
-        float sd = calculateStandardDeviation(context, &mainBuffers.kernelBuffer, constants.binCount);
-        file << i << "," << sd << "\n";
+        #if AUTO_STOP
+        file << i << "," << newVariance << "\n";
+
+        if(newVariance > variance) {
+            std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
+            break;
+        }
+        variance = newVariance;
         #endif
     }
-    #if SAVE_DEVIATION
+
+    #if AUTO_STOP
     file.close();
     #endif
     std::cout << std::endl;
