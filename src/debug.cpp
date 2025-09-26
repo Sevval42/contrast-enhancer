@@ -316,7 +316,7 @@ void saveDataAsCsv(VulkanContext* context, VulkanImage* image, uint32_t imageSiz
 
     file << "r,g,b\n";
     for(int i = 0; i < outputPixels.size(); i+= 4 * skipFactor){
-        if(outputPixels[i] >= 0.47 && outputPixels[i] <= 0.53)
+        if(true || outputPixels[i] >= 0.47 && outputPixels[i] <= 0.53)
         file << outputPixels[i] << "," << outputPixels[i+1] << "," << outputPixels[i+2] << "\n";
     }
     file.close();

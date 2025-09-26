@@ -44,8 +44,8 @@ void main() {
 
 #if USE_ROTATED_INT
     // Columns for rotated integrals
-    intX0.values[index0] = smoothHistogram.values[index0];
-    intX1.values[index1] = smoothHistogram.values[index1];
+    intX0.values[getIndex(ivec3(0, row.xy))] = smoothHistogram.values[getIndex(ivec3(0, row.xy))];
+    intX1.values[getIndex(ivec3(bins-1, row.xy))] = smoothHistogram.values[getIndex(ivec3(bins-1, row.xy))];
     intY0.values[getIndex(ivec3(row.x, 0, row.y))] = smoothHistogram.values[getIndex(ivec3(row.x, 0, row.y))];
     intY1.values[getIndex(ivec3(row.x, bins-1, row.y))] = smoothHistogram.values[getIndex(ivec3(row.x, bins-1, row.y))];
     intZ0.values[getIndex(ivec3(row, 0))] = smoothHistogram.values[getIndex(ivec3(row, 0))];

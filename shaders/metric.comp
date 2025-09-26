@@ -10,7 +10,7 @@ layout(set = 0, binding = 3) buffer readonly SmoothHistogramBuffer {
     float values[];
 } smoothHistogram;
 
-layout(set = 0, binding = 20) buffer metricBuffer { float values[]; } metric;
+layout(set = 0, binding = 21) buffer metricBuffer { float values[]; } metric;
 
 uint getIndex(ivec3 x) {
     uint bins = constants.bins;

@@ -1,0 +1,55 @@
+#version 450
+
+/*
+Smooths the histogram along the Y-axis and stores it into a float buffer.
+Uses the from cpu precomputed gaussian weights.
+*/
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint bins;
+    uint radius;
+    float d0;
+} constants;
+
+layout(set = 0, binding = 2) buffer HistogramBuffer {
+    uint values[];
+} histogram;
+
+layout(set = 0, binding = 3) buffer SmoothHistogramBuffer {
+    float values[];
+} smoothHistogram;
+
+layout(set = 0, binding = 19) buffer SmoothHistogramTempBuffer {
+    float values[];
+} smoothHistogramTemp;
+
+layout(set = 0, binding = 4) buffer GaussLookUpBuffer {
+    float values[];
+} gauss;
+
+int getIndex(ivec3 x) {
+    int bins = int(constants.bins);
+    if(any(lessThan(x, ivec3(0)))) return -1;
+    if(any(greaterThanEqual(x, ivec3(bins)))) return -1;
+    return x.r + x.g * bins + x.b * bins * bins;
+}
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+void main() {
+    ivec3 color = ivec3(gl_GlobalInvocationID.xyz);
+    if(any(greaterThanEqual(color, ivec3(int(constants.bins))))) return;
+
+    int radius = int(constants.radius);
+    float sum = 0;
+    float weight = 0;
+    
+    for(int i = -radius; i <= radius; i++) {
+        int neighborIndex = color.g+i;
+        if(neighborIndex < 0 || neighborIndex >= int(constants.bins)) continue;
+        sum += smoothHistogram.values[getIndex(ivec3(color.r, neighborIndex, color.b))] * gauss.values[i+radius];
+        weight += gauss.values[i+radius];
+    }
+    sum /= weight;
+    smoothHistogramTemp.values[getIndex(color)] = sum;
+    histogram.values[getIndex(color)] = 0; // clear accumulation histogram for next iteration
+}

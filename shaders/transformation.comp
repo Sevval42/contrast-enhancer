@@ -238,8 +238,8 @@ void main() {
     + vec3(x, y, 1) * weightZ0
     + vec3(x, y, 0) * weightZ1;
 
-    if(any(lessThan(ivec3(color), ivec3(maxBin))) && any(greaterThanEqual(ivec3(color), ivec3(0)))) { // only for debugging right now
-        intX0.values[getIndex(ivec3(i, j, k))] = weightX0; 
+    if(any(lessThan(ivec3(color), ivec3(bins))) && any(greaterThanEqual(ivec3(color), ivec3(0)))) { // only for debugging
+        intX0.values[getIndex(ivec3(i, j, k))] = (getIndexTemp(0, id000) == -1 ? 0 : tempX0.values[getIndexTemp(0, id000)]); 
         intX1.values[getIndex(ivec3(i, j, k))] = weightX1;
         intY0.values[getIndex(ivec3(i, j, k))] = weightY0;
         intY1.values[getIndex(ivec3(i, j, k))] = weightY1;
@@ -254,7 +254,4 @@ void main() {
     uint trIndex = 
         uint(i + j * bin1 + k * bin1 * bin1); 
     transformation.values[trIndex] = vec4(map, 0);
-
-    if(any(lessThan(ivec3(color), ivec3(bins)))) // clear accumulation histogram for next iteration
-        histogram.values[getIndex(color)] = 0;
 }

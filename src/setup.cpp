@@ -42,10 +42,12 @@ void setupDescriptorSet(
         addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 12-17: tempIntegrals
     
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 18: Transformation buffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 19: kernel histogram temp buffer
     if(!isBaseDensityRun) {
-        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 19: Basedensity transformation buffer
+        addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 20: Basedensity transformation buffer
     }
-    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 20: Metric buffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 21: Metric buffer
+
 
     createDescriptorSet(context, descriptorSet);
 
@@ -83,24 +85,15 @@ void setupDescriptorSet(
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
-    size_t lookupCount = (int)pow(constants->kernelRadius * 2 + 1, 3);
-    float lookUp[lookupCount];
+    float lookUp[constants->kernelRadius * 2 + 1];
     int radius = (int)constants->kernelRadius;
-    int idx = 0;
-    float sigma2 = 2*sigma*sigma;
-    for (int z = -radius; z <= radius; ++z) {
-        for (int y = -radius; y <= radius; ++y) {
-            for (int x = -radius; x <= radius; ++x) {
-                float dist2 = float(x*x + y*y + z*z);
-                lookUp[idx++] = std::exp(-dist2 / sigma2);
-            }
-        }
+    for(int i = -radius; i <= radius; ++i) {
+        lookUp[i+radius] = std::exp(-(i * i) / (2.0f * sigma * sigma));
     }
-
     descriptorSet->addBufferAndData(context, 
         &buffers->expLookUp, 
         lookUp, 
-        sizeof(float) * lookupCount, 
+        sizeof(float) * (constants->kernelRadius*2+1), 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
@@ -129,6 +122,14 @@ void setupDescriptorSet(
         &buffers->transformationBuffer, 
         NULL, 
         transformationSize,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    descriptorSet->addBufferAndData(context, 
+        &buffers->kernelBufferTemp, 
+        NULL, 
+        integralSize, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );

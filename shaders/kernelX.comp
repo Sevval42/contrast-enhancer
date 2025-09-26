@@ -1,9 +1,8 @@
 #version 450
 
 /*
-Smooths the histogram and stores it into a float buffer.
-Uses from the cpu precomputed gaussian weights.
-Also adds the base density (theoretical average density) to every bin of the histogram.
+Smooths the histogram along the X-axis and stores it into a float buffer.
+Uses the from cpu precomputed gaussian weights.
 */
 
 layout(set = 0, binding = 0) uniform UniformBuffer {
@@ -40,19 +39,12 @@ void main() {
     float sum = 0;
     float weight = 0;
     
-    uint size = constants.radius * 2 + 1;
-    for (int z = -radius; z <= radius; ++z) {
-        for (int y = -radius; y <= radius; ++y) {
-            for (int x = -radius; x <= radius; ++x) {
-                int neighborIndex = int(getIndex(color + ivec3(x, y, z)));
-                if(neighborIndex == -1) continue;
-
-                uint weightIndex = (z + radius) * size * size + (y + radius) * size + (x + radius);
-                sum += float(histogram.values[neighborIndex]) * gauss.values[weightIndex];
-                weight += gauss.values[weightIndex];
-            }
-        }
+    for(int i = -radius; i <= radius; i++) {
+        int neighborIndex = color.r+i;
+        if(neighborIndex < 0 || neighborIndex >= int(constants.bins)) continue;
+        sum += float(histogram.values[getIndex(ivec3(neighborIndex, color.gb))]) * gauss.values[i+radius];
+        weight += gauss.values[i+radius];
     }
     sum /= weight;
-    smoothHistogram.values[getIndex(color)] = constants.d0 + sum;
+    smoothHistogram.values[getIndex(color)] = sum;
 }

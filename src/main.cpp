@@ -97,13 +97,8 @@ void initApplication(std::string imageFile) {
     int minVal = 100;
     int maxVal = 155;
 
-    // Seed RNG
-    
-
-    // Allocate pixel buffer (unsigned char for 0–255 range)
     std::vector<unsigned char> randImg(size * size * randchannels);
 
-    // Fill with random colors
     for (int y = 0; y < size; ++y) {
         for (int x = 0; x < size; ++x) {
             int idx = (y * size + x) * randchannels;
@@ -208,7 +203,9 @@ void initApplication(std::string imageFile) {
 
 
     std::vector<const char*> baseComputeShaders;
-    baseComputeShaders.push_back("../shaders/kernel.spv");
+    baseComputeShaders.push_back("../shaders/kernelX.spv");
+    baseComputeShaders.push_back("../shaders/kernelY.spv");
+    baseComputeShaders.push_back("../shaders/kernelZ.spv");
     baseComputeShaders.push_back("../shaders/integralX.spv");
     baseComputeShaders.push_back("../shaders/integralY.spv");
     baseComputeShaders.push_back("../shaders/integralZ.spv");
@@ -218,6 +215,8 @@ void initApplication(std::string imageFile) {
     baseComputeShaders.push_back("../shaders/transformation.spv");
 
     std::vector<ivec3> baseDispatches = {
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsInt, groupsInt, 1},
         ivec3{groupsInt, groupsInt, 1},
@@ -232,7 +231,9 @@ void initApplication(std::string imageFile) {
 
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
-    computeShaders.push_back("../shaders/kernel.spv");
+    computeShaders.push_back("../shaders/kernelX.spv");
+    computeShaders.push_back("../shaders/kernelY.spv");
+    computeShaders.push_back("../shaders/kernelZ.spv");
 #if AUTO_STOP
     computeShaders.push_back("../shaders/metric.spv");
 #endif
@@ -247,6 +248,8 @@ void initApplication(std::string imageFile) {
 
     std::vector<ivec3> dispatches = {
         ivec3{(int)w/16+1, (int)h/16+1, 1},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
+        ivec3{groupsKernel, groupsKernel, groupsKernel},
         ivec3{groupsKernel, groupsKernel, groupsKernel},
 #if AUTO_STOP
         ivec3{groupsInt, groupsInt, 1},
