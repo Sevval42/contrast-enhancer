@@ -34,7 +34,7 @@
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
-#define SAVECSV false
+#define SAVECSV true
 #define INVERT false
 
 #define USE_ROTATED_INTEGRALS false
@@ -169,10 +169,14 @@ void initApplication(std::string imageFile) {
 
     // add jitter to image
     #if JITTER
-    for(int i = 0; i < w*h*channels; i++) {
-        if(i%4 == 3) continue;
-        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-5;
+    for(int i = 0; i < w*h*4; i++) {
+        if(i%4 == 3) continue; // skip alpha channel
+        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-6;
         pixels[i] = fmax(0.0f, fmin(1.0f, pixels[i]+r));
+
+        float scaleMin = 0;
+        float scaleMax = 1;
+        pixels[i] = pixels[i]*(scaleMax-scaleMin)+scaleMin;
     }
     #endif
 
@@ -334,8 +338,8 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         file << i << "," << newVariance << "\n";
 
         if(newVariance > variance) {
-            std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
-            break;
+            //std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
+            //break;
         }
         variance = newVariance;
         #endif
@@ -419,15 +423,15 @@ int main(int argc, char* argv[]) {
 
     #if SAVECSV
     LOG("Save data to csv files");
-    saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
+    //saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
     for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
         std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
-        saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
+        //saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
     }
     //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
-    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
-    saveDataAsCsv(context, &mainBuffers.imageBuffer, mainBuffers.imageSize, "../plots/image.csv", 200);
+    //saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
+    saveDataAsCsv(context, &mainBuffers.imageBuffer, mainBuffers.imageSize, "../plots/image.csv", 1);
     #endif
    
     shutdownApplication();

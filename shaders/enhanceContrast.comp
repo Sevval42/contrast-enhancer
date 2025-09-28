@@ -66,7 +66,7 @@ void main() {
         t111 * rd * gd * bd;
 
     color.xyz += mapping.xyz;
-    //color = clamp(color, 0, 1);
+    color = clamp(color, 0, 1);
 
     imageStore(img, pixelCoords, color);
     //imageStore(img, pixelCoords, vec4(1, 0, 1, color.a));
