@@ -9,7 +9,7 @@ data = np.loadtxt(os.path.join(script_dir, "image.csv"), delimiter=",", skiprows
 
 r, g, b = data[:,0], data[:,1], data[:,2]
 
-fig = plt.figure(figsize=(12,12))
+fig = plt.figure(figsize=(10,10))
 ax = fig.add_subplot(111, projection="3d")
 
 # Plot points in RGB color
@@ -22,8 +22,8 @@ ax.set_zlabel("B")
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
 ax.set_zlim(0, 1)
-ax.set_title("RGB Point Cloud")
+#ax.set_title("RGB Point Cloud")
 ax.set_aspect("equal")
 ax.view_init(15, -25, 0)
-#plt.savefig("random_histogram_0.png", dpi=300)
+plt.savefig("fjord_pointcloud.png", dpi=200, bbox_inches="tight")
 plt.show()
