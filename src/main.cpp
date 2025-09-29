@@ -18,14 +18,15 @@
 #include "vulkan_base/vulkan_base.h"
 #include "debug.h"
 #include "setup.h"
+#include "input.h"
 #include <yaml-cpp/yaml.h>
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
 #define AUTO_STOP true
 #define JITTER true
+#define USE_ROTATED_INTEGRALS false
+#define MULTISPECTRAL_IMAGES false
 
 // Constants for debugging purposes
 #define RANDIMG false
@@ -34,10 +35,9 @@
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
-#define SAVECSV true
+#define SAVECSV false
 #define INVERT false
 
-#define USE_ROTATED_INTEGRALS false
 
 // Program constants
 int ITERATIONS = 0;
@@ -161,11 +161,23 @@ void initApplication(std::string imageFile) {
     #endif
 
     int w,h,channels;
-    stbi_ldr_to_hdr_gamma(1.0f);
-    float* pixels = stbi_loadf(imageFile.c_str(), &w, &h, &channels, STBI_rgb_alpha);
-    if (!pixels) {
-        throw std::runtime_error("Failed to load image");
-    }
+    #if MULTISPECTRAL_IMAGES
+    std::vector<float> pixels = loadFits(
+        "../images/multispectral/lagoon/hubble_lagoon_f502n.fits",
+        "../images/multispectral/lagoon/hubble_lagoon_f656n.fits",
+        "../images/multispectral/lagoon/hubble_lagoon_f673n.fits",
+        &w, &h
+    );
+
+    /*std::vector<float> pixels = loadFits(
+        "../images/multispectral/eagle/m16_f502n.fits",
+        "../images/multispectral/eagle/m16_f657n.fits",
+        "../images/multispectral/eagle/m16_f673n.fits",
+        &w, &h
+    );*/
+    #else
+    std::vector<float> pixels = loadImage(imageFile, &w, &h, &channels);
+    #endif
 
     // add jitter to image
     #if JITTER
@@ -191,14 +203,11 @@ void initApplication(std::string imageFile) {
     LOG("Creating descriptor set for base density");
 
     baseDescriptorSet = initDescriptorSet();
-    setupDescriptorSet(context, baseDescriptorSet, &baseBuffers, pixels, w, h, sigma, &constants, NULL, true);
+    setupDescriptorSet(context, baseDescriptorSet, &baseBuffers, pixels.data(), w, h, sigma, &constants, NULL, true);
 
     LOG("Creating descriptor for main loop");
     mainDescriptorSet = initDescriptorSet();
-    setupDescriptorSet(context, mainDescriptorSet, &mainBuffers, pixels, w, h, sigma, &constants, &baseBuffers.transformationBuffer, false);
-    
-    stbi_image_free(pixels);
-
+    setupDescriptorSet(context, mainDescriptorSet, &mainBuffers, pixels.data(), w, h, sigma, &constants, &baseBuffers.transformationBuffer, false);
 
     LOG("Creating pipelines");
     int groupsKernel = constants.binCount / 8+1;
@@ -338,8 +347,8 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         file << i << "," << newVariance << "\n";
 
         if(newVariance > variance) {
-            //std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
-            //break;
+            std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
+            break;
         }
         variance = newVariance;
         #endif
@@ -423,14 +432,14 @@ int main(int argc, char* argv[]) {
 
     #if SAVECSV
     LOG("Save data to csv files");
-    //saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
+    saveHistogramAsCsv(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("../plots/histogram.csv").c_str());
     for (int i = 0; i < mainBuffers.integralImages.size(); ++i) {
         std::string filename = "../plots/integral" + std::to_string(i) + ".csv";
-        //saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
+        saveHistogramAsCsv(context, &mainBuffers.integralImages[i], constants.binCount, filename.c_str());
     }
-    //saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
+    saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
-    //saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
+    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
     saveDataAsCsv(context, &mainBuffers.imageBuffer, mainBuffers.imageSize, "../plots/image.csv", 1);
     #endif
    

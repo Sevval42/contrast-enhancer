@@ -30,6 +30,15 @@ FetchContent_MakeAvailable(
 
 find_package(Vulkan REQUIRED)
 
+find_path(CFITSIO_INCLUDE_DIR fitsio.h
+          HINTS /opt/homebrew/include /usr/local/include)
+find_library(CFITSIO_LIBRARY cfitsio
+             HINTS /opt/homebrew/lib /usr/local/lib)
+
+if(NOT CFITSIO_INCLUDE_DIR OR NOT CFITSIO_LIBRARY)
+    message(FATAL_ERROR "CFITSIO not found. Please install")
+endif()
+
 if (UNIX)
     add_custom_target(build_shaders ALL
         COMMAND "${PROJECT_SOURCE_DIR}/shaders/compile.sh"
@@ -48,3 +57,6 @@ target_link_libraries(contrast_enhancer PUBLIC Vulkan::Vulkan)
 target_link_libraries(contrast_enhancer PRIVATE yaml-cpp)
 
 target_include_directories(contrast_enhancer PRIVATE ${stb_SOURCE_DIR})
+
+target_include_directories(contrast_enhancer PRIVATE ${CFITSIO_INCLUDE_DIR})
+target_link_libraries(contrast_enhancer PRIVATE ${CFITSIO_LIBRARY})

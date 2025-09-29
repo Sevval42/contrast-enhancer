@@ -27,7 +27,10 @@ void main() {
         return;
     }
 
-    vec3 color = imageLoad(img, pixelCoords).xyz;
+    vec4 pixel = imageLoad(img, pixelCoords);
+    if(pixel.a == 0) return;
+
+    vec3 color = pixel.rgb;
     color = clamp(color, 0.0, 1.0);
 
     color *= float(constants.bins);

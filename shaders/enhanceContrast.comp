@@ -32,6 +32,7 @@ void main() {
 
     float bins = constants.bins;
     vec4 color = imageLoad(img, pixelCoords);
+    if(color.a == 0) return;
     vec4 c = color * bins;
 
     float r0 = clamp(floor(c.x), 0.0, bins - 1.0);
