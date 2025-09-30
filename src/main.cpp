@@ -19,6 +19,7 @@
 #include "debug.h"
 #include "setup.h"
 #include "input.h"
+#include "metrics.h"
 #include <yaml-cpp/yaml.h>
 #include "stb_image.h"
 #include "stb_image_write.h"
@@ -27,6 +28,9 @@
 #define JITTER true
 #define USE_ROTATED_INTEGRALS false
 #define MULTISPECTRAL_IMAGES false
+#define DATA_ANALYSIS false
+
+std::vector<int> keyIterations = {1,2,4,8,16,32,64,128};
 
 // Constants for debugging purposes
 #define RANDIMG false
@@ -43,6 +47,8 @@
 int ITERATIONS = 0;
 UniformData constants;
 float sigma = 1.0;
+float finalMse = 0;
+float finalGradient = 0;
 
 VulkanContext* context;
 
@@ -53,6 +59,8 @@ StageBuffers baseBuffers;
 VulkanDescriptorSet* mainDescriptorSet;
 VulkanPipeline mainPipeline;
 StageBuffers mainBuffers;
+
+Result result;
 
 void loadConstantsFromYaml(UniformData* constants) {
     YAML::Node config = YAML::LoadFile("../config.yaml");
@@ -257,6 +265,9 @@ void initApplication(std::string imageFile) {
     computeShaders.push_back("../shaders/integralD.spv");
 #endif
     computeShaders.push_back("../shaders/transformation.spv");
+#if DATA_ANALYSIS
+    computeShaders.push_back("../shaders/gradient.spv");
+#endif
     computeShaders.push_back("../shaders/enhanceContrast.spv");
 
     std::vector<ivec3> dispatches = {
@@ -275,6 +286,9 @@ void initApplication(std::string imageFile) {
 #endif
         ivec3{transformationKernel, transformationKernel, transformationKernel},
         ivec3{(int)w/16+1, (int)h/16+1, 1},
+#if DATA_ANALYSIS
+        ivec3{(int)w/16+1, (int)h/16+1, 1},
+#endif
     };
     mainPipeline = createPipeline(context, computeShaders, dispatches, mainDescriptorSet);
 }
@@ -294,7 +308,7 @@ void shutdownApplication() {
 }
 
 // Runs the shaders for the given commandBuffer
-void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
+void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseRun) {
     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = commandBuffer;
@@ -313,7 +327,8 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
 #endif
 
     float variance = 1e30;
-    for(int i = 0; i < iterations; ++i) {
+    int i;
+    for(i = 0; i < iterations; ++i) {
         // Run Shader iteration
         auto start = std::chrono::high_resolution_clock::now();
         if (vkQueueSubmit(context->computeQueue.queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
@@ -322,20 +337,22 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         vkQueueWaitIdle(context->computeQueue.queue);
 
         // If enabled, check for increasing variance of histogram data
-        #if AUTO_STOP
         uint32_t count = constants.binCount * constants.binCount;
         std::vector<float> metricData(count);
         getDataFromBufferWithStagingBuffer(context, &mainBuffers.metric, metricData.data(), sizeof(float) * count);
 
         float newVariance = std::accumulate(metricData.begin(), metricData.end(), 0.0f);
         newVariance /= (float)pow(constants.binCount, 2);
-        #endif
         
         // time measurement and progress bar
         averageMillis += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
         float progress = static_cast<float>(i + 1) / iterations;
         int pos = static_cast<int>(barWidth * progress);
         printProgress(progress, barWidth, loadingBar, averageMillis/(i+1));
+        if(isBaseRun) {
+            std::cout << std::endl;
+            return;
+        }
 
         #if VIDEO
         std::ostringstream oss;
@@ -343,16 +360,33 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations) {
         saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str(), 'x');
         #endif
 
-        #if AUTO_STOP
         file << i << "," << newVariance << "\n";
 
+        #if DATA_ANALYSIS
+        for(int j = 0; j < keyIterations.size(); ++j) {
+            if(i == keyIterations[j]) { // histogram and gradient is the one from the previous iteration
+                result.gradient.push_back(calculateGradient(context, &mainBuffers.gradient, mainBuffers.imageSize));
+                result.mse.push_back(newVariance);
+                break;
+            }
+        }
+        #endif
+
+        #if AUTO_STOP
         if(newVariance > variance) {
+            variance = newVariance;
             std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
             break;
         }
-        variance = newVariance;
         #endif
+        variance = newVariance;
     }
+
+    #if DATA_ANALYSIS
+    result.lastIteration = i;
+    finalGradient = calculateGradient(context, &mainBuffers.gradient, mainBuffers.imageSize);
+    finalMse = variance;
+    #endif
 
     #if AUTO_STOP
     file.close();
@@ -371,6 +405,14 @@ int main(int argc, char* argv[]) {
         fileName = std::string("../images/") + argv[1];
     }
     initApplication(fileName);
+
+    for(int i = 0; i < 64; ++i){
+        keyIterations.push_back(i);
+    }
+
+    result = Result();
+    result.fileName = fileName;
+    result.iterations = keyIterations;
 
     // Start running the shaders
     VkCommandBuffer commandBuffer;
@@ -395,7 +437,7 @@ int main(int argc, char* argv[]) {
     setupCommandBuffer(&commandBuffer, baseDescriptorSet, &basePipeline);
     vkEndCommandBuffer(commandBuffer);
     
-    runApplication(&commandBuffer, 1);
+    runApplication(&commandBuffer, 1,true);
     
     vkResetCommandBuffer(commandBuffer, 0);
 
@@ -403,14 +445,47 @@ int main(int argc, char* argv[]) {
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
     setupCommandBuffer(&commandBuffer, mainDescriptorSet, &mainPipeline);
     vkEndCommandBuffer(commandBuffer);
-    
-    runApplication(&commandBuffer, ITERATIONS);
+
+    runApplication(&commandBuffer, ITERATIONS, false);
     
     vkFreeCommandBuffers(context->device, context->commandPool, 1, &commandBuffer);
 
     std::cout << std::endl;
 
     LOG("Computing finished");
+
+    #if DATA_ANALYSIS
+    LOG("Save analysis");
+    // save analysis to files
+    std::ofstream gradientFile("../plots/test_gradient.csv", std::ios::app);
+    if (!gradientFile.is_open()) {
+        std::cerr << "Error opening for analysis" << std::endl;
+    }
+
+    std::ofstream mseFile("../plots/test_mse.csv", std::ios::app);
+    if (!mseFile.is_open()) {
+        std::cerr << "Error opening for analysis" << std::endl;
+    }
+
+    gradientFile << fileName;
+    mseFile << fileName;
+
+    for(int i = 0; i < result.iterations.size(); ++i){
+        if(i < result.gradient.size()) {
+            gradientFile << "," << result.gradient[i];
+            mseFile << "," << result.mse[i];
+        } else {
+            gradientFile << ",-1";
+            mseFile << ",-1";
+        }
+    }
+
+    gradientFile << "," << result.lastIteration;
+    gradientFile << "," << finalGradient << "\n";
+    mseFile << "," << result.lastIteration;
+    mseFile << "," << finalMse << "\n";
+
+    #else // Dont save the images during data analysis
 
     LOG("Save image as png");
     saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
@@ -419,6 +494,7 @@ int main(int argc, char* argv[]) {
     saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramx.png").c_str(), 'x');
     saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramy.png").c_str(), 'y');
     saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramz.png").c_str(), 'z');
+    #endif
 
     #if INTEGRALS
     LOG("Save integrals as pngs");

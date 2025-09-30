@@ -1,0 +1,44 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform UniformBuffer {
+    uint bins;
+    uint radius;
+    float d0;
+} constants;
+
+layout(set = 0, binding = 1, rgba32f) uniform image2D img;
+
+layout(set = 0, binding = 22, rgba32f) uniform image2D gradientImg;
+
+layout(local_size_x = 16, local_size_y=16) in;
+void main(){
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= imageSize(img).x || pixel.y >= imageSize(img).y) {
+        return;
+    }
+
+    vec4 color = imageLoad(img, pixel);
+    if(color.a == 0) return;
+
+    vec4 dx, dy;
+    if(pixel.x == 0) {
+        dx = imageLoad(img, ivec2(pixel.x+1, pixel.y)) - imageLoad(img, pixel);
+    } else if(pixel.x == imageSize(img).x-1) {
+        dx = imageLoad(img, pixel) - imageLoad(img, ivec2(pixel.x-1, pixel.y));
+    } else {
+        dx = (imageLoad(img, ivec2(pixel.x+1, pixel.y)) - imageLoad(img, ivec2(pixel.x-1, pixel.y)))/2.0;
+    }
+
+    if(pixel.y == 0) {
+        dy = imageLoad(img, ivec2(pixel.x, pixel.y+1)) - imageLoad(img, pixel);
+    } else if(pixel.y == imageSize(img).y-1) {
+        dy = imageLoad(img, pixel) - imageLoad(img, ivec2(pixel.x, pixel.y-1));
+    } else {
+        dy = (imageLoad(img, ivec2(pixel.x, pixel.y+1)) - imageLoad(img, ivec2(pixel.x, pixel.y-1)))/2.0;
+    }
+
+    vec4 newColor = vec4(length(vec2(dx.r, dy.r)), length(vec2(dx.g, dy.g)), length(vec2(dx.b, dy.b)), 1.0);
+
+    imageStore(gradientImg, pixel, newColor);
+
+}

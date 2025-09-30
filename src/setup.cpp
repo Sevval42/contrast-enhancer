@@ -47,6 +47,7 @@ void setupDescriptorSet(
         addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);   // 20: Basedensity transformation buffer
     }
     addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);       // 21: Metric buffer
+    addDescriptorSetLayout(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);        // 22: Gradient buffer
 
 
     createDescriptorSet(context, descriptorSet);
@@ -154,7 +155,16 @@ void setupDescriptorSet(
         metricSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );    
+    );
+
+    descriptorSet->addImageAndData(
+        context, 
+        &buffers->gradient, image, buffers->imageSize,
+        w, h, 1, 
+        VK_FORMAT_R32G32B32A32_SFLOAT,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
 
     LOG("Load descriptor set");
     fillDescriptorSet(context, descriptorSet);
@@ -200,6 +210,7 @@ void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* des
 }
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers *stageBuffers) {
+    destroyImage(context, &stageBuffers->gradient);
     destroyBuffer(context, &stageBuffers->metric);
     destroyBuffer(context, &stageBuffers->transformationBuffer);
     for(auto& tempInt : stageBuffers->tempIntegrals) {

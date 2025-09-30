@@ -27,6 +27,7 @@ struct StageBuffers {
 
     VulkanBuffer transformationBuffer;
     VulkanBuffer metric;
+    VulkanImage gradient;
 };
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers);
