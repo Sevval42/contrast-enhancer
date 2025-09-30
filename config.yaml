@@ -2,3 +2,4 @@ histogramBinCount: 256
 kernelRadius: 8
 gaussSigma: 1.5
 iterations: 30
+jitterFactor: 1e-6

@@ -49,6 +49,7 @@ UniformData constants;
 float sigma = 1.0;
 float finalMse = 0;
 float finalGradient = 0;
+float jitterFactor = 0;
 
 VulkanContext* context;
 
@@ -69,6 +70,7 @@ void loadConstantsFromYaml(UniformData* constants) {
     constants->baseDensity = 0; // will be automatically set by the program
     ITERATIONS = config["iterations"].as<int>();
     sigma = config["gaussSigma"].as<float>();
+    jitterFactor = config["jitterFactor"].as<float>();
 }
 
 void initApplication(std::string imageFile) {
@@ -191,7 +193,7 @@ void initApplication(std::string imageFile) {
     #if JITTER
     for(int i = 0; i < w*h*4; i++) {
         if(i%4 == 3) continue; // skip alpha channel
-        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * 1e-6;
+        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * jitterFactor;
         pixels[i] = fmax(0.0f, fmin(1.0f, pixels[i]+r));
 
         float scaleMin = 0;
