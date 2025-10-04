@@ -24,16 +24,16 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-#define AUTO_STOP true
+#define AUTO_STOP false
 #define JITTER true
 #define USE_ROTATED_INTEGRALS false
-#define MULTISPECTRAL_IMAGES false
+#define MULTISPECTRAL_IMAGES true
 #define DATA_ANALYSIS false
 
 std::vector<int> keyIterations = {1,2,4,8,16,32,64,128};
 
 // Constants for debugging purposes
-#define RANDIMG false
+#define RANDIMG true
 #define UNIFORMIMG false
 #define LINEIMG false
 #define INTEGRALS false
@@ -50,6 +50,7 @@ float sigma = 1.0;
 float finalMse = 0;
 float finalGradient = 0;
 float jitterFactor = 0;
+float backgroundDensityFactor = 1;
 
 VulkanContext* context;
 
@@ -71,6 +72,7 @@ void loadConstantsFromYaml(UniformData* constants) {
     ITERATIONS = config["iterations"].as<int>();
     sigma = config["gaussSigma"].as<float>();
     jitterFactor = config["jitterFactor"].as<float>();
+    backgroundDensityFactor = config["backgroundFactor"].as<float>();
 }
 
 void initApplication(std::string imageFile) {
@@ -101,7 +103,7 @@ void initApplication(std::string imageFile) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     #if RANDIMG
-    const int size = 512;
+    const int size = 500;
     const int randchannels = 4;
     const int stride_in_bytes = size * randchannels;
     int minVal = 100;
@@ -173,16 +175,16 @@ void initApplication(std::string imageFile) {
     int w,h,channels;
     #if MULTISPECTRAL_IMAGES
     std::vector<float> pixels = loadFits(
-        "../images/multispectral/lagoon/hubble_lagoon_f502n.fits",
-        "../images/multispectral/lagoon/hubble_lagoon_f656n.fits",
         "../images/multispectral/lagoon/hubble_lagoon_f673n.fits",
+        "../images/multispectral/lagoon/hubble_lagoon_f656n.fits",
+        "../images/multispectral/lagoon/hubble_lagoon_f502n.fits",
         &w, &h
     );
 
     /*std::vector<float> pixels = loadFits(
-        "../images/multispectral/eagle/m16_f502n.fits",
-        "../images/multispectral/eagle/m16_f657n.fits",
         "../images/multispectral/eagle/m16_f673n.fits",
+        "../images/multispectral/eagle/m16_f657n.fits",
+        "../images/multispectral/eagle/m16_f502n.fits",
         &w, &h
     );*/
     #else
@@ -206,7 +208,7 @@ void initApplication(std::string imageFile) {
     mainBuffers.imageSize = numPixels * 4 * sizeof(float); // forcing 4 channels
     baseBuffers.imageSize = mainBuffers.imageSize;
 
-    float baseDensity = (float)(w*h) / pow(constants.binCount, 3);
+    float baseDensity = (float)(w*h) / pow(constants.binCount, 3) * backgroundDensityFactor;
     constants.baseDensity = baseDensity;
     std::cout << "Basedensity: " << baseDensity << std::endl;
 
@@ -319,14 +321,12 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseR
     float averageMillis = 0;
     std::string loadingBar = std::string(barWidth, '|');
 
-#if AUTO_STOP
-    std::ofstream file("../plots/standardDeviation.csv");
+    std::ofstream file("../plots/standardDeviation_10.csv");
     if (!file.is_open()) {
         std::cerr << "Error opening file: standardDeviation.csv" << std::endl;
         return;
     }
     file << "iteration,x\n";
-#endif
 
     float variance = 1e30;
     int i;
@@ -374,13 +374,14 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseR
         }
         #endif
 
-        #if AUTO_STOP
+
         if(newVariance > variance) {
             variance = newVariance;
+        #if false
             std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
             break;
-        }
         #endif
+        }
         variance = newVariance;
     }
 
