@@ -30,7 +30,8 @@
 #define USE_ROTATED_INTEGRALS false // don't use this
 #define MULTISPECTRAL_IMAGES false  // uses multiple grey-scale images for each color channel
 #define DATA_ANALYSIS false         // accumulates mse and gradient values over multiple iterations
-#define N_D_DATA false              // loads data from csv instead of image
+#define N_D_DATA true              // loads data from csv instead of image
+#define LABEL_COUNT 1
 
 std::vector<int> keyIterations = {1,2,4,8,16,32,64,128}; // key iterations for data analysis
 
@@ -197,7 +198,7 @@ void initApplication(std::string imageFile) {
             &w, &h
         );*/
     #elif N_D_DATA
-        std::vector<float> pixels = loadCsv(imageFile, 10, &w, &h, &channels);
+        std::vector<float> pixels = loadCsv(imageFile.c_str(), LABEL_COUNT, &w, &h, &channels);
     #else
         std::vector<float> pixels = loadImage(imageFile, &w, &h, &channels);
     #endif
@@ -506,7 +507,7 @@ int main(int argc, char* argv[]) {
 
     #if N_D_DATA
     LOG("Save labeled csv data");
-    saveNDToCsv("dataOutput.csv", 10, context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
+    saveNDToCsv("dataOutput.csv", LABEL_COUNT, context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
     #endif
 
     LOG("Save histogram as png");
