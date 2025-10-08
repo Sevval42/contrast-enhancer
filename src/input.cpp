@@ -1,11 +1,14 @@
 #include "input.h"
 #include "fitsio.h"
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <sstream>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -23,7 +26,6 @@ std::vector<float> loadImage(std::string fileName, int* width, int* height, int*
     return image;
 }
 
-// Helper: compute percentile from valid pixels
 float computePercentile(const std::vector<float>& data, float percentile, float ignoreValue) {
     std::vector<float> valid;
     valid.reserve(data.size());
@@ -38,7 +40,8 @@ float computePercentile(const std::vector<float>& data, float percentile, float 
     return valid[i0] * (1.0 - frac) + valid[i1] * frac;
 }
 
-// Load a single FITS file
+// written with chat-gpt
+// Loads single FITS file
 std::vector<float> loadFit(const char* fileName, int* width, int* height) {
     int status = 0;
     fitsfile *fptr;
@@ -88,7 +91,8 @@ std::vector<float> loadFit(const char* fileName, int* width, int* height) {
     return image;
 }
 
-// Load 3 FITS files and combine into RGBA with per-channel stretch + weights
+// written with chat-gpt
+// Loads 3 FITS files and combines into RGBA with per-channel stretch and weights
 std::vector<float> loadFits(
     const char* fileNameR,
     const char* fileNameG,
@@ -112,7 +116,6 @@ std::vector<float> loadFits(
 
     float ignoreValue = channelR[0];
 
-    // Compute percentiles for each channel individually
     float pR_low = computePercentile(channelR, 0.005f, ignoreValue);
     float pR_high = computePercentile(channelR, 0.995f, ignoreValue);
     if (pR_high == pR_low) pR_high = pR_low + 1e-6f;
@@ -125,7 +128,6 @@ std::vector<float> loadFits(
     float pB_high = computePercentile(channelB, 0.995f, ignoreValue);
     if (pB_high == pB_low) pB_high = pB_low + 1e-6f;
 
-    // Lambda for per-channel stretch
     auto stretch = [](float v, float p_low, float p_high, float weight, float ignoreValue) -> float {
         if (v == ignoreValue || std::isnan(v)) return 0.0f;
         float nv = (v - p_low) / (p_high - p_low);
@@ -143,4 +145,81 @@ std::vector<float> loadFits(
     }
 
     return image;
+}
+
+// loads csv files for the image data. They need the layout: r,g,b,label
+std::vector<float> loadCsv(const char* filename, int labelCount, int* width, int* height, int* channels) {
+    *channels = 4;
+
+    std::ifstream file((std::string(filename)));
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening file: ");
+    }
+
+    std::vector<float> data;
+    std::string line;
+
+    std::getline(file, line);
+
+    int count = 0;
+    int numPixels = 0;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string cell;
+
+        while (std::getline(ss, cell, ',')) {
+            try {
+                if(count%4 != 3){
+                    data.push_back(std::stof(cell));
+                }else{
+                    data.push_back((std::stof(cell) + 1) / ((float)labelCount+1));
+                }
+                count++;
+            } catch (const std::invalid_argument&) {
+                continue;
+            }
+        }
+        numPixels++;
+    }
+
+    file.close();
+
+    *width = 2048;
+    *height = (numPixels + (*width) - 1) / (*width);
+
+    size_t totalPixels = (*width) * (*height);
+    data.resize(totalPixels * (*channels), 0.0f);
+
+    for(int i = count; i < *width*(*height); i++){
+        data.push_back(0);
+    }
+
+    return data;
+}
+
+void saveNDToCsv(const char* filename, int labelCount, VulkanContext* context, VulkanImage* image, uint32_t imageSize) {
+    std::ofstream file(filename);
+    if (!file.is_open()) throw std::runtime_error("Cannot open file for writing");
+
+    file << "X,Y,Z,label\n";
+
+    std::vector<float> data(imageSize/sizeof(float));
+    getDataFromImageWithStagingBuffer(context, image, data.data());
+    int channels = 4;
+    size_t numPixels = image->extent.width * image->extent.height;
+    for (size_t i = 0; i < numPixels; ++i) {
+        size_t idx = i * channels;
+        float r = data[idx];
+        float g = data[idx + 1];
+        float b = data[idx + 2];
+
+        float alpha = data[idx + 3];
+        if(alpha == 0) continue;
+        int label = static_cast<int>(alpha * (labelCount + 1) + 0.5f) - 1;
+        
+        file << r << "," << g << "," << b << "," << label << "\n";
+    }
+
+    file.close();
 }

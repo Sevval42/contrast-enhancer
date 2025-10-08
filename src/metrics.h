@@ -10,6 +10,4 @@ struct Result {
     std::vector<float> gradient;
 };
 
-float calculateStandardDeviation(VulkanContext* context, VulkanBuffer* histogram, uint32_t binCount);
-
 float calculateGradient(VulkanContext* context, VulkanImage* gradientImage, uint32_t imageSize);

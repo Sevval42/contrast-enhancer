@@ -1,3 +1,4 @@
+# written with chat-gpt
 #!/bin/bash
 
 EXEC="./contrast_enhancer"

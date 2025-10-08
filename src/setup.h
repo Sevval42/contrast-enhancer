@@ -1,7 +1,7 @@
 #include "vulkan_base/vulkan_base.h"
 
 /*
-    Helper methods for setting up the pipeline and running the shader
+    Helper methods for setting up the pipeline and running the shaders
 */
 
 struct UniformData {
@@ -32,6 +32,10 @@ struct StageBuffers {
 
 void destroyStageBuffer(VulkanContext* context, StageBuffers* stageBuffers);
 
+/*
+    The program is setup so each shader is in one vulkan pipeline object.
+    To simplify everything, each vk_pipeline uses the same descriptor set.
+*/
 void setupDescriptorSet(
     VulkanContext* context,
     VulkanDescriptorSet* descriptorSet,
@@ -42,4 +46,8 @@ void setupDescriptorSet(
     bool isBaseDensity
 );
 
+/*
+    This method fills the commandbuffer with the pipelines and data from the descriptorset.
+    vkBeginCommandBuffer() and vkEndCommandBuffer() need to be called before and after this method separately.
+*/
 void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline);

@@ -170,7 +170,6 @@ void setupDescriptorSet(
     fillDescriptorSet(context, descriptorSet);
 }
 
-// Sets up a commandbuffer for a given descriptor set and sets all the memory barriers
 void setupCommandBuffer(VkCommandBuffer* commandBuffer, VulkanDescriptorSet* descriptorSet, VulkanPipeline* pipeline) {
     vkCmdBindDescriptorSets(
         *commandBuffer, 

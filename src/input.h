@@ -1,3 +1,4 @@
+#include "vulkan_base/vulkan_base.h"
 #include <vector>
 
 std::vector<float> loadImage(std::string fileName, int* width, int* height, int* channels);
@@ -12,3 +13,6 @@ std::vector<float> loadFits(
     float weightG = 1.0f,
     float weightB = 1.0f
 );
+
+std::vector<float> loadCsv(const char* filename, int labelCount, int* width, int* height, int* channels);
+void saveNDToCsv(const char* filename, int labelCount, VulkanContext* context, VulkanImage* image, uint32_t imageSize);

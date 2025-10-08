@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -24,22 +25,23 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-#define AUTO_STOP false
-#define JITTER true
-#define USE_ROTATED_INTEGRALS false
-#define MULTISPECTRAL_IMAGES true
-#define DATA_ANALYSIS false
+#define AUTO_STOP true              // stops as soon as mse over histogram increases again
+#define JITTER true                 // adds small random noise to data
+#define USE_ROTATED_INTEGRALS false // don't use this
+#define MULTISPECTRAL_IMAGES false  // uses multiple grey-scale images for each color channel
+#define DATA_ANALYSIS false         // accumulates mse and gradient values over multiple iterations
+#define N_D_DATA false              // loads data from csv instead of image
 
-std::vector<int> keyIterations = {1,2,4,8,16,32,64,128};
+std::vector<int> keyIterations = {1,2,4,8,16,32,64,128}; // key iterations for data analysis
 
 // Constants for debugging purposes
-#define RANDIMG true
+#define RANDIMG false
 #define UNIFORMIMG false
 #define LINEIMG false
 #define INTEGRALS false
 #define TRANSFORMATION false
 #define VIDEO false
-#define SAVECSV false
+#define SAVECSV false // make sure the histogram bin count is not too high (up to 64 is okay, greater values need significantly more time)
 #define INVERT false
 
 
@@ -47,7 +49,7 @@ std::vector<int> keyIterations = {1,2,4,8,16,32,64,128};
 int ITERATIONS = 0;
 UniformData constants;
 float sigma = 1.0;
-float finalMse = 0;
+float finalMSE = 0;
 float finalGradient = 0;
 float jitterFactor = 0;
 float backgroundDensityFactor = 1;
@@ -77,6 +79,11 @@ void loadConstantsFromYaml(UniformData* constants) {
 
 void initApplication(std::string imageFile) {
 
+    /*
+        Different devices might need different extensions. Make sure the validation layer is activated,
+        so missing extensions are shown and can be added here (manually).
+        The validation layer can be activated by setting the DEBUGGING variable in the src/vulkan_base/vulkan_device.cpp
+    */
     const char* instanceExtensions[] = {
         #ifdef __APPLE__
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
@@ -103,92 +110,96 @@ void initApplication(std::string imageFile) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     #if RANDIMG
-    const int size = 500;
-    const int randchannels = 4;
-    const int stride_in_bytes = size * randchannels;
-    int minVal = 100;
-    int maxVal = 155;
+    {
+        const int size = 500;
+        const int randchannels = 4;
+        const int stride_in_bytes = size * randchannels;
+        int minVal = 100;
+        int maxVal = 155;
 
-    std::vector<unsigned char> randImg(size * size * randchannels);
+        std::vector<unsigned char> randImg(size * size * randchannels);
 
-    for (int y = 0; y < size; ++y) {
-        for (int x = 0; x < size; ++x) {
-            int idx = (y * size + x) * randchannels;
-            randImg[idx + 0] = minVal + (std::rand() % (maxVal - minVal + 1));
-            randImg[idx + 1] = minVal + (std::rand() % (maxVal - minVal + 1));
-            randImg[idx + 2] = minVal + (std::rand() % (maxVal - minVal + 1));
-            randImg[idx + 3] = 255;
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                int idx = (y * size + x) * randchannels;
+                randImg[idx + 0] = minVal + (std::rand() % (maxVal - minVal + 1));
+                randImg[idx + 1] = minVal + (std::rand() % (maxVal - minVal + 1));
+                randImg[idx + 2] = minVal + (std::rand() % (maxVal - minVal + 1));
+                randImg[idx + 3] = 255;
+            }
         }
-    }
-    if (!stbi_write_png("../images/randomImage.png", size, size, randchannels, randImg.data(), stride_in_bytes)) {
-        std::cerr << "Failed to write image!" << std::endl;
+        if (!stbi_write_png("../images/randomImage.png", size, size, randchannels, randImg.data(), stride_in_bytes)) {
+            std::cerr << "Failed to write image!" << std::endl;
+        }
     }
     #endif
 
     #if UNIFORMIMG
+    {
+        const int uChannels = 64;
+        const int uw = 512;
+        std::vector<unsigned char> uniformImg(uw * uw * 4);
 
-    const int uChannels = 64;
-    const int uw = 512;
-    std::vector<unsigned char> uniformImg(uw * uw * 4);
+        int index = 0;
+        for(int z = 0; z < uChannels; z++) {
+            for(int y = 0; y < uChannels; y++) {
+                for(int x = 0; x < uChannels; x++) {
+                    uniformImg[index] = x*4;
+                    uniformImg[index+1] = y*4;
+                    uniformImg[index+2] = z*4;
+                    uniformImg[index+3] = 255;
 
-    int index = 0;
-    for(int z = 0; z < uChannels; z++) {
-        for(int y = 0; y < uChannels; y++) {
-            for(int x = 0; x < uChannels; x++) {
-                uniformImg[index] = x*4;
-                uniformImg[index+1] = y*4;
-                uniformImg[index+2] = z*4;
-                uniformImg[index+3] = 255;
-
-                index+=4;
+                    index+=4;
+                }
             }
         }
-    }
 
-    if (!stbi_write_png("../images/uniform.png", uw, uw, 4, uniformImg.data(), uw*4)) {
-        std::cerr << "Failed to write image!" << std::endl;
+        if (!stbi_write_png("../images/uniform.png", uw, uw, 4, uniformImg.data(), uw*4)) {
+            std::cerr << "Failed to write image!" << std::endl;
+        }
     }
-
     #endif
 
     #if LINEIMG
+    {
+        const int lw = 4048;
+        std::vector<unsigned char> lineImg(lw * lw * 4);
 
-    const int lw = 4048;
-    std::vector<unsigned char> lineImg(lw * lw * 4);
+        int index = 0;
+        for(int i = 0; i < lineImg.size(); i+=4) {
+            float d = ((float)i/lineImg.size()*255);
+            float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+            lineImg[i] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+            lineImg[i+1] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+            lineImg[i+2] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
+            lineImg[i+3] = 255;
+        }
 
-    int index = 0;
-    for(int i = 0; i < lineImg.size(); i+=4) {
-        float d = ((float)i/lineImg.size()*255);
-        float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-        lineImg[i] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
-        lineImg[i+1] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
-        lineImg[i+2] = (int)fmax(0.0, fmin(255.0,(float)d + 20*(2*r-1)));
-        lineImg[i+3] = 255;
+        if (!stbi_write_png("../images/lineTest.png", lw, lw, 4, lineImg.data(), lw*4)) {
+            std::cerr << "Failed to write image!" << std::endl;
+        }
     }
-
-    if (!stbi_write_png("../images/lineTest.png", lw, lw, 4, lineImg.data(), lw*4)) {
-        std::cerr << "Failed to write image!" << std::endl;
-    }
-
     #endif
 
     int w,h,channels;
     #if MULTISPECTRAL_IMAGES
-    std::vector<float> pixels = loadFits(
-        "../images/multispectral/lagoon/hubble_lagoon_f673n.fits",
-        "../images/multispectral/lagoon/hubble_lagoon_f656n.fits",
-        "../images/multispectral/lagoon/hubble_lagoon_f502n.fits",
-        &w, &h
-    );
+        std::vector<float> pixels = loadFits(
+            "../images/multispectral/lagoon/hubble_lagoon_f673n.fits",
+            "../images/multispectral/lagoon/hubble_lagoon_f656n.fits",
+            "../images/multispectral/lagoon/hubble_lagoon_f502n.fits",
+            &w, &h
+        );
 
-    /*std::vector<float> pixels = loadFits(
-        "../images/multispectral/eagle/m16_f673n.fits",
-        "../images/multispectral/eagle/m16_f657n.fits",
-        "../images/multispectral/eagle/m16_f502n.fits",
-        &w, &h
-    );*/
+        /*std::vector<float> pixels = loadFits(
+            "../images/multispectral/eagle/m16_f673n.fits",
+            "../images/multispectral/eagle/m16_f657n.fits",
+            "../images/multispectral/eagle/m16_f502n.fits",
+            &w, &h
+        );*/
+    #elif N_D_DATA
+        std::vector<float> pixels = loadCsv(imageFile, 10, &w, &h, &channels);
     #else
-    std::vector<float> pixels = loadImage(imageFile, &w, &h, &channels);
+        std::vector<float> pixels = loadImage(imageFile, &w, &h, &channels);
     #endif
 
     // add jitter to image
@@ -226,7 +237,7 @@ void initApplication(std::string imageFile) {
     int groupsInt = constants.binCount / 32 + 1;
     int transformationKernel = (constants.binCount+1) / 8 + 1;
 
-
+    // Shader setup for the background density run
     std::vector<const char*> baseComputeShaders;
     baseComputeShaders.push_back("../shaders/kernelX.spv");
     baseComputeShaders.push_back("../shaders/kernelY.spv");
@@ -253,7 +264,7 @@ void initApplication(std::string imageFile) {
     };
     basePipeline = createPipeline(context, baseComputeShaders, baseDispatches, baseDescriptorSet);
 
-
+    // Shader setup for the main runs
     std::vector<const char*> computeShaders;
     computeShaders.push_back("../shaders/histogram.spv");
     computeShaders.push_back("../shaders/kernelX.spv");
@@ -328,7 +339,7 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseR
     }
     file << "iteration,x\n";
 
-    float variance = 1e30;
+    float MSE = 1e30;
     int i;
     for(i = 0; i < iterations; ++i) {
         // Run Shader iteration
@@ -343,8 +354,8 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseR
         std::vector<float> metricData(count);
         getDataFromBufferWithStagingBuffer(context, &mainBuffers.metric, metricData.data(), sizeof(float) * count);
 
-        float newVariance = std::accumulate(metricData.begin(), metricData.end(), 0.0f);
-        newVariance /= (float)pow(constants.binCount, 2);
+        float newMSE = std::accumulate(metricData.begin(), metricData.end(), 0.0f);
+        newMSE /= (float)pow(constants.binCount, 2);
         
         // time measurement and progress bar
         averageMillis += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
@@ -362,38 +373,37 @@ void runApplication(VkCommandBuffer* commandBuffer, int iterations, bool isBaseR
         saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, oss.str().c_str(), 'x');
         #endif
 
-        file << i << "," << newVariance << "\n";
+        file << i << "," << newMSE << "\n";
 
         #if DATA_ANALYSIS
         for(int j = 0; j < keyIterations.size(); ++j) {
             if(i == keyIterations[j]) { // histogram and gradient is the one from the previous iteration
                 result.gradient.push_back(calculateGradient(context, &mainBuffers.gradient, mainBuffers.imageSize));
-                result.mse.push_back(newVariance);
+                result.mse.push_back(newMSE);
                 break;
             }
         }
         #endif
 
 
-        if(newVariance > variance) {
-            variance = newVariance;
-        #if false
+        if(newMSE > MSE) {
+            MSE = newMSE;
+        #if AUTO_STOP
             std::cout << std::endl << "Only did " << i+1 << " iterations because of increasing variance" << std::endl;
             break;
         #endif
         }
-        variance = newVariance;
+        MSE = newMSE;
     }
 
     #if DATA_ANALYSIS
     result.lastIteration = i;
     finalGradient = calculateGradient(context, &mainBuffers.gradient, mainBuffers.imageSize);
-    finalMse = variance;
+    finalMSE = MSE;
     #endif
 
-    #if AUTO_STOP
     file.close();
-    #endif
+
     std::cout << std::endl;
 }
 
@@ -407,11 +417,12 @@ int main(int argc, char* argv[]) {
     if(argc >= 2) {
         fileName = std::string("../images/") + argv[1];
     }
+
     initApplication(fileName);
 
-    for(int i = 0; i < 64; ++i){
+    /*for(int i = 0; i < 64; ++i){
         keyIterations.push_back(i);
-    }
+    }*/
 
     result = Result();
     result.fileName = fileName;
@@ -486,17 +497,22 @@ int main(int argc, char* argv[]) {
     gradientFile << "," << result.lastIteration;
     gradientFile << "," << finalGradient << "\n";
     mseFile << "," << result.lastIteration;
-    mseFile << "," << finalMse << "\n";
+    mseFile << "," << finalMSE << "\n";
 
     #else // Dont save the images during data analysis
 
     LOG("Save image as png");
     saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
 
+    #if N_D_DATA
+    LOG("Save labeled csv data");
+    saveNDToCsv("dataOutput.csv", 10, context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
+    #endif
+
     LOG("Save histogram as png");
-    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramx.png").c_str(), 'x');
-    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramy.png").c_str(), 'y');
-    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramz.png").c_str(), 'z');
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramX.png").c_str(), 'x');
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramY.png").c_str(), 'y');
+    saveHistogramAsPng(context, &mainBuffers.kernelBuffer, constants.binCount, std::string("histogramZ.png").c_str(), 'z');
     #endif
 
     #if INTEGRALS
@@ -518,7 +534,7 @@ int main(int argc, char* argv[]) {
     }
     saveRotatedIntegralAsCsv(context, &mainBuffers.tempIntegrals[0], constants.binCount, std::string("../plots/integral.csv").c_str(), 0);
 
-    saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
+    //saveTransformationAsCsv(context, &mainBuffers.transformationBuffer, &baseBuffers.transformationBuffer, constants.binCount, "../plots/transformation.csv", constants.binCount);
     saveDataAsCsv(context, &mainBuffers.imageBuffer, mainBuffers.imageSize, "../plots/image.csv", 1);
     #endif
    

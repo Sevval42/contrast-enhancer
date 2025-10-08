@@ -2,6 +2,7 @@
 #include "vulkan_base.h"
 #include <iostream>
 
+#define SHOW_AVAILABLE_EXTENSIONS_AND_LAYERS false
 #define DEBUGGING true
 
 bool initVulkanInstance(VulkanContext* context, uint32_t extensionCount, const char**  extensions) {
@@ -10,11 +11,14 @@ bool initVulkanInstance(VulkanContext* context, uint32_t extensionCount, const c
     VkLayerProperties* layerProperties = new VkLayerProperties[layerPropertyCount];
     vkEnumerateInstanceLayerProperties(&layerPropertyCount, layerProperties);
 
-    /*std::cout << "Available VK_LayerProperties: " << std::endl;
+#if SHOW_AVAILABLE_EXTENSIONS_AND_LAYERS
+    std::cout << "Available VK_LayerProperties: " << std::endl;
     for(uint32_t i = 0; i < layerPropertyCount; ++i) {
         std::cout << layerProperties[i].layerName << std::endl;
         std::cout << layerProperties[i].description << std::endl;
-    }*/
+    }
+#endif
+
     delete[] layerProperties;
 
     const char* enabledLayers[] = {
@@ -28,10 +32,12 @@ bool initVulkanInstance(VulkanContext* context, uint32_t extensionCount, const c
     VkExtensionProperties* extensionProperties = new VkExtensionProperties[extensionPropertyCount];
     vkEnumerateInstanceExtensionProperties(0, &extensionPropertyCount, extensionProperties);
 
-    /*std::cout << "Available VK_ExtensionProperties: " << std::endl;
+#if SHOW_AVAILABLE_EXTENSIONS_AND_LAYERS
+    std::cout << "Available VK_ExtensionProperties: " << std::endl;
     for(uint32_t i = 0; i < extensionPropertyCount; ++i) {
         std::cout << extensionProperties[i].extensionName << std::endl;
-    }*/
+    }
+#endif
 
     delete[] extensionProperties;
 
