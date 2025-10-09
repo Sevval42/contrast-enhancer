@@ -25,23 +25,25 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
+// ----- Program control -----
 #define AUTO_STOP true              // stops as soon as mse over histogram increases again
 #define JITTER true                 // adds small random noise to data
 #define USE_ROTATED_INTEGRALS false // don't use this
 #define MULTISPECTRAL_IMAGES false  // uses multiple grey-scale images for each color channel
 #define DATA_ANALYSIS false         // accumulates mse and gradient values over multiple iterations
-#define N_D_DATA true              // loads data from csv instead of image
+
+#define CSV_INPUT false             // loads data from csv instead of image
 #define LABEL_COUNT 1
 
 std::vector<int> keyIterations = {1,2,4,8,16,32,64,128}; // key iterations for data analysis
 
-// Constants for debugging purposes
+// ----- Debugging constants -----
 #define RANDIMG false
 #define UNIFORMIMG false
 #define LINEIMG false
 #define INTEGRALS false
 #define TRANSFORMATION false
-#define VIDEO false
+#define VIDEO false             // saves the histogram accumulation image after each iteration in the /bin/histograms/ dir
 #define SAVECSV false // make sure the histogram bin count is not too high (up to 64 is okay, greater values need significantly more time)
 #define INVERT false
 
@@ -197,7 +199,7 @@ void initApplication(std::string imageFile) {
             "../images/multispectral/eagle/m16_f502n.fits",
             &w, &h
         );*/
-    #elif N_D_DATA
+    #elif CSV_INPUT
         std::vector<float> pixels = loadCsv(imageFile.c_str(), LABEL_COUNT, &w, &h, &channels);
     #else
         std::vector<float> pixels = loadImage(imageFile, &w, &h, &channels);
@@ -505,7 +507,7 @@ int main(int argc, char* argv[]) {
     LOG("Save image as png");
     saveImageAsPng(context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
 
-    #if N_D_DATA
+    #if CSV_INPUT
     LOG("Save labeled csv data");
     saveNDToCsv("dataOutput.csv", LABEL_COUNT, context, &mainBuffers.imageBuffer, mainBuffers.imageSize);
     #endif

@@ -1,6 +1,8 @@
 #include "vulkan_base/vulkan_base.h"
 #include <vector>
 
+#define STRIDE 2048
+
 std::vector<float> loadImage(std::string fileName, int* width, int* height, int* channels);
 
 std::vector<float> loadFits(

@@ -185,7 +185,7 @@ std::vector<float> loadCsv(const char* filename, int labelCount, int* width, int
 
     file.close();
 
-    *width = 2048;
+    *width = STRIDE;
     *height = (numPixels + (*width) - 1) / (*width);
 
     size_t totalPixels = (*width) * (*height);
