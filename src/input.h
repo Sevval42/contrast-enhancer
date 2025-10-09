@@ -1,5 +1,6 @@
 #include "vulkan_base/vulkan_base.h"
 #include <vector>
+#include <string>
 
 #define STRIDE 2048
 

@@ -1,5 +1,7 @@
 #include "input.h"
-#include "fitsio.h"
+#ifdef HAVE_CFITSIO
+#include <fitsio.h>
+#endif
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -9,6 +11,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -40,6 +43,7 @@ float computePercentile(const std::vector<float>& data, float percentile, float 
     return valid[i0] * (1.0 - frac) + valid[i1] * frac;
 }
 
+#if HAVE_CFITSIO
 // written with chat-gpt
 // Loads single FITS file
 std::vector<float> loadFit(const char* fileName, int* width, int* height) {
@@ -146,7 +150,20 @@ std::vector<float> loadFits(
 
     return image;
 }
-
+#else 
+std::vector<float> loadFits(
+    const char* fileNameR,
+    const char* fileNameG,
+    const char* fileNameB,
+    int* width,
+    int* height,
+    float weightR,
+    float weightG,
+    float weightB
+) {
+    throw std::runtime_error("FITS loading is only supported on macOS (CFITSIO not available)");
+}
+#endif
 // loads csv files for the image data. They need the layout: r,g,b,label
 std::vector<float> loadCsv(const char* filename, int labelCount, int* width, int* height, int* channels) {
     *channels = 4;

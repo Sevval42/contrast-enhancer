@@ -9,6 +9,7 @@ Program that enhances contrast in images using decluttering. Written in C++ and 
 - shader compiler:
     - glslang on mac
     - glslc on windows
+- cfitsio (for macos only)
 
 ## Building
 
@@ -49,7 +50,7 @@ Set this to `true` to activate the automatic termination of the program when the
 ### `JITTER`
 Set this to `true` to activate the addition of small random noise to improve the regularization.
 
-### `MULTISPECTRAL_IMAGES`
+### `MULTISPECTRAL_IMAGES` (only supported for macos for now)
 If this is set to `true`, the user has to manually set the paths of the three spectral images (see lines 190 ff.). The program currently only supports FITS files in this simpler mode. The three paths will then be used as Red, Green and Blue channels after a light stretch which can be changed in the code if wanted.
 
 ### `DATA_ANALYSIS`
