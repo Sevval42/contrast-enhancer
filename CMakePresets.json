@@ -4,9 +4,9 @@
     {
       "name": "windows",
       "displayName": "Windows",
-      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
         "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
       }
@@ -14,7 +14,6 @@
     {
       "name": "mac",
       "displayName": "macOS",
-      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "YES"
