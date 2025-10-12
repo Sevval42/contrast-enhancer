@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 
-#define STRIDE 2048
+#define STRIDE 1500
 
 std::vector<float> loadImage(std::string fileName, int* width, int* height, int* channels);
 

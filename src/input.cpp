@@ -161,7 +161,7 @@ std::vector<float> loadFits(
     float weightG,
     float weightB
 ) {
-    throw std::runtime_error("FITS loading is only supported on macOS (CFITSIO not available)");
+    throw std::runtime_error("FITS loading is only supported on macOS. Write the data into csv files and use the loadCsv() method instead");
 }
 #endif
 // loads csv files for the image data. They need the layout: r,g,b,label

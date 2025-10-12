@@ -70,5 +70,9 @@ If the user sets the `SAVECSV` constant to `true`, multiple csv files will be wr
 ## Debugging images
 The program can generate a `randomImage.png`, `uniform.png` and `lineTest.png` image by setting the `RANDIMG`, `UNIFORMIMG` and `LINEIMG` to true.
 
+### Vulkan
+Different devices might need different extensions. Make sure the validation layer is (de)activated, so missing extensions are shown and can be added in the `src/main.cpp` file.
+The validation layer can be activated by setting the DEBUGGING variable in the `src/vulkan_base/vulkan_device.cpp`
+
 ### LICENSE
 MIT
