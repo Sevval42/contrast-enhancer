@@ -1,5 +1,13 @@
 # Contrast Enhancer
-Program that enhances contrast in images using decluttering. Written in C++ and GLSL using the Vulkan API.
+Program that globally enhances contrast in images using decluttering. Written in C++ and GLSL using the Vulkan API.
+
+| | |
+|-|-|
+| <img src="examples/fjord.png" width="250px"><br>Fjord Image, Bergen, Norway 2025 | <img src="examples/fjord_59.png" width="250px"><br> After 59 iterations |
+| <img src="examples/eagle_k1_0.png" width="250px"><br>Pillars of Creation, Hubble Legacy Archive | <img src="examples/eagle_k1_10.png" width="250px"><br> After 10 iterations |
+|||
+
+
 
 ## Prerequisites
 - C++11 or later
