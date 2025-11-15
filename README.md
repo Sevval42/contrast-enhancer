@@ -1,33 +1,17 @@
 # Contrast Enhancer
 Program that globally enhances contrast in images using decluttering. Written in C++ and GLSL using the Vulkan API.
 
+Fjord image (taken in Bergen, Norway 2025) after 0 and 59 iterations.
+<p align="center">
+  <img src="examples/fjord.png" width="300" />
+  <img src="examples/fjord_59.png" width="300" />
+</p>
 
-<div align="center">
-
-  <div style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="examples/fjord.png" width="250px">
-    <div>Fjord Image, Bergen, Norway 2025</div>
-  </div>
-
-  <div style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="examples/fjord_59.png" width="250px">
-    <div>After 59 iterations</div>
-  </div>
-
-  <br>
-
-  <div style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="examples/eagle_k1_0.png" width="250px">
-    <div>Pillars of Creation, Hubble Legacy Archive</div>
-  </div>
-
-  <div style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="examples/eagle_k1_10.png" width="250px">
-    <div>After 10 iterations</div>
-  </div>
-
-</div>
-
+Pillars of creation (Hubble Legacy Archive, 502, 657 and 673 nm wavelengths) after 0 and 10 iterations.
+<p align="center">
+  <img src="examples/eagle_k1_0.png" width="300" />
+  <img src="examples/eagle_k1_10.png" width="300" />
+</p>
 
 
 
