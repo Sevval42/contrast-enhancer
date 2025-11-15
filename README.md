@@ -2,9 +2,32 @@
 Program that globally enhances contrast in images using decluttering. Written in C++ and GLSL using the Vulkan API.
 
 
-| <img src="examples/fjord.png" width="250px"><br>Fjord Image, Bergen, Norway 2025 | <img src="examples/fjord_59.png" width="250px"><br> After 59 iterations |
-|-|-|
-| <img src="examples/eagle_k1_0.png" width="250px"><br>Pillars of Creation, Hubble Legacy Archive | <img src="examples/eagle_k1_10.png" width="250px"><br> After 10 iterations |
+<div align="center">
+
+  <div style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="examples/fjord.png" width="250px">
+    <div>Fjord Image, Bergen, Norway 2025</div>
+  </div>
+
+  <div style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="examples/fjord_59.png" width="250px">
+    <div>After 59 iterations</div>
+  </div>
+
+  <br>
+
+  <div style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="examples/eagle_k1_0.png" width="250px">
+    <div>Pillars of Creation, Hubble Legacy Archive</div>
+  </div>
+
+  <div style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="examples/eagle_k1_10.png" width="250px">
+    <div>After 10 iterations</div>
+  </div>
+
+</div>
+
 
 
 
